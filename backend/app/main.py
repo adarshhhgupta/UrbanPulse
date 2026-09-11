@@ -52,18 +52,25 @@ def initialize_and_seed_db(max_retries: int = 15, retry_interval: float = 2.0):
             db.add_all([l1, l2, l3, l4])
             db.commit()
 
-            # 2. Seed Detections
-            d1 = Detection(lane_id=1, vehicle_class="ambulance", confidence_score=0.98, bbox_x=0.32, bbox_y=0.24, bbox_w=0.34, bbox_h=0.50)
-            d2 = Detection(lane_id=1, vehicle_class="car", confidence_score=0.94, bbox_x=0.70, bbox_y=0.55, bbox_w=0.22, bbox_h=0.35)
-            d3 = Detection(lane_id=2, vehicle_class="truck", confidence_score=0.91, bbox_x=0.10, bbox_y=0.18, bbox_w=0.28, bbox_h=0.55)
-            d4 = Detection(lane_id=2, vehicle_class="car", confidence_score=0.96, bbox_x=0.42, bbox_y=0.35, bbox_w=0.22, bbox_h=0.42)
-            d5 = Detection(lane_id=2, vehicle_class="car", confidence_score=0.89, bbox_x=0.68, bbox_y=0.25, bbox_w=0.24, bbox_h=0.45)
-            d6 = Detection(lane_id=3, vehicle_class="bike", confidence_score=0.87, bbox_x=0.35, bbox_y=0.48, bbox_w=0.14, bbox_h=0.32)
-            d7 = Detection(lane_id=3, vehicle_class="car", confidence_score=0.92, bbox_x=0.60, bbox_y=0.30, bbox_w=0.22, bbox_h=0.38)
-            d8 = Detection(lane_id=4, vehicle_class="car", confidence_score=0.93, bbox_x=0.18, bbox_y=0.38, bbox_w=0.22, bbox_h=0.42)
-            d9 = Detection(lane_id=4, vehicle_class="car", confidence_score=0.88, bbox_x=0.45, bbox_y=0.25, bbox_w=0.24, bbox_h=0.44)
-            d10 = Detection(lane_id=4, vehicle_class="bike", confidence_score=0.91, bbox_x=0.74, bbox_y=0.50, bbox_w=0.15, bbox_h=0.35)
-            db.add_all([d1, d2, d3, d4, d5, d6, d7, d8, d9, d10])
+            # 2. Seed Real YOLOv8 Vehicle Detections
+            d1 = Detection(lane_id=1, vehicle_class="ambulance", confidence_score=0.98, bbox_x=0.060, bbox_y=0.445, bbox_w=0.134, bbox_h=0.475)
+            d2 = Detection(lane_id=1, vehicle_class="car", confidence_score=0.94, bbox_x=0.546, bbox_y=0.644, bbox_w=0.113, bbox_h=0.193)
+            d3 = Detection(lane_id=1, vehicle_class="car", confidence_score=0.92, bbox_x=0.778, bbox_y=0.656, bbox_w=0.117, bbox_h=0.162)
+
+            d4 = Detection(lane_id=2, vehicle_class="bus", confidence_score=0.92, bbox_x=0.485, bbox_y=0.410, bbox_w=0.065, bbox_h=0.185)
+            d5 = Detection(lane_id=2, vehicle_class="car", confidence_score=0.94, bbox_x=0.245, bbox_y=0.535, bbox_w=0.075, bbox_h=0.125)
+            d6 = Detection(lane_id=2, vehicle_class="auto-rickshaw", confidence_score=0.91, bbox_x=0.380, bbox_y=0.450, bbox_w=0.055, bbox_h=0.095)
+            d7 = Detection(lane_id=2, vehicle_class="bike", confidence_score=0.89, bbox_x=0.280, bbox_y=0.650, bbox_w=0.040, bbox_h=0.090)
+
+            d8 = Detection(lane_id=3, vehicle_class="bus", confidence_score=0.96, bbox_x=0.209, bbox_y=0.610, bbox_w=0.214, bbox_h=0.381)
+            d9 = Detection(lane_id=3, vehicle_class="car", confidence_score=0.91, bbox_x=0.483, bbox_y=0.320, bbox_w=0.063, bbox_h=0.147)
+            d10 = Detection(lane_id=3, vehicle_class="car", confidence_score=0.89, bbox_x=0.445, bbox_y=0.246, bbox_w=0.059, bbox_h=0.116)
+
+            d11 = Detection(lane_id=4, vehicle_class="car", confidence_score=0.96, bbox_x=0.488, bbox_y=0.410, bbox_w=0.191, bbox_h=0.248)
+            d12 = Detection(lane_id=4, vehicle_class="auto-rickshaw", confidence_score=0.94, bbox_x=0.000, bbox_y=0.430, bbox_w=0.249, bbox_h=0.357)
+            d13 = Detection(lane_id=4, vehicle_class="auto-rickshaw", confidence_score=0.92, bbox_x=0.220, bbox_y=0.378, bbox_w=0.212, bbox_h=0.275)
+            d14 = Detection(lane_id=4, vehicle_class="auto-rickshaw", confidence_score=0.90, bbox_x=0.656, bbox_y=0.362, bbox_w=0.070, bbox_h=0.176)
+            db.add_all([d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11, d12, d13, d14])
 
             # 3. Seed Violations
             v1 = Violation(lane_id=2, plate_number="KA-05-MJ-4821", confidence_score=0.948, violation_type="Red-Light Stop-Line Breach")

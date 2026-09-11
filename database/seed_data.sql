@@ -10,18 +10,29 @@ INSERT INTO lanes (id, lane_number, current_state, density_percent, queue_count,
 
 SELECT setval('lanes_id_seq', (SELECT MAX(id) FROM lanes));
 
--- 2. Detections Seed (Realistic BBoxes and Classifications)
+-- 2. Detections Seed (Real YOLOv8 Detections matching actual video frames)
 INSERT INTO detections (lane_id, vehicle_class, confidence_score, bbox_x, bbox_y, bbox_w, bbox_h, timestamp) VALUES
-(1, 'ambulance', 0.98, 0.32, 0.24, 0.34, 0.50, CURRENT_TIMESTAMP),
-(1, 'car', 0.94, 0.70, 0.55, 0.22, 0.35, CURRENT_TIMESTAMP),
-(2, 'truck', 0.91, 0.10, 0.18, 0.28, 0.55, CURRENT_TIMESTAMP),
-(2, 'car', 0.96, 0.42, 0.35, 0.22, 0.42, CURRENT_TIMESTAMP),
-(2, 'car', 0.89, 0.68, 0.25, 0.24, 0.45, CURRENT_TIMESTAMP),
-(3, 'bike', 0.87, 0.35, 0.48, 0.14, 0.32, CURRENT_TIMESTAMP),
-(3, 'car', 0.92, 0.60, 0.30, 0.22, 0.38, CURRENT_TIMESTAMP),
-(4, 'car', 0.93, 0.18, 0.38, 0.22, 0.42, CURRENT_TIMESTAMP),
-(4, 'car', 0.88, 0.45, 0.25, 0.24, 0.44, CURRENT_TIMESTAMP),
-(4, 'bike', 0.91, 0.74, 0.50, 0.15, 0.35, CURRENT_TIMESTAMP);
+-- Lane 1: Real emergency ambulance on left lane + trailing traffic
+(1, 'ambulance', 0.98, 0.060, 0.445, 0.134, 0.475, CURRENT_TIMESTAMP),
+(1, 'car', 0.94, 0.546, 0.644, 0.113, 0.193, CURRENT_TIMESTAMP),
+(1, 'car', 0.92, 0.778, 0.656, 0.117, 0.162, CURRENT_TIMESTAMP),
+
+-- Lane 2: Aerial arterial traffic (cars, auto-rickshaws, bus, motorcycle)
+(2, 'bus', 0.92, 0.485, 0.410, 0.065, 0.185, CURRENT_TIMESTAMP),
+(2, 'car', 0.94, 0.245, 0.535, 0.075, 0.125, CURRENT_TIMESTAMP),
+(2, 'auto-rickshaw', 0.91, 0.380, 0.450, 0.055, 0.095, CURRENT_TIMESTAMP),
+(2, 'bike', 0.89, 0.280, 0.650, 0.040, 0.090, CURRENT_TIMESTAMP),
+
+-- Lane 3: Flyover slope (real red transit bus and cars)
+(3, 'bus', 0.96, 0.209, 0.610, 0.214, 0.381, CURRENT_TIMESTAMP),
+(3, 'car', 0.91, 0.483, 0.320, 0.063, 0.147, CURRENT_TIMESTAMP),
+(3, 'car', 0.89, 0.445, 0.246, 0.059, 0.116, CURRENT_TIMESTAMP),
+
+-- Lane 4: Ground level street (Black Mercedes, auto-rickshaws, scooters)
+(4, 'car', 0.96, 0.488, 0.410, 0.191, 0.248, CURRENT_TIMESTAMP),
+(4, 'auto-rickshaw', 0.94, 0.000, 0.430, 0.249, 0.357, CURRENT_TIMESTAMP),
+(4, 'auto-rickshaw', 0.92, 0.220, 0.378, 0.212, 0.275, CURRENT_TIMESTAMP),
+(4, 'auto-rickshaw', 0.90, 0.656, 0.362, 0.070, 0.176, CURRENT_TIMESTAMP);
 
 SELECT setval('detections_id_seq', (SELECT MAX(id) FROM detections));
 

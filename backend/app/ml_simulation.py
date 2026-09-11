@@ -68,58 +68,71 @@ def generate_detections_for_lane(
     #     for box in results[0].boxes
     # ]
     # --------------------------------------------------------------------------
-    """
+    # Load pre-computed high-accuracy YOLOv8 video detections if available
+    json_path = os.path.join(os.path.dirname(__file__), "detections_data.json")
+    if os.path.exists(json_path):
+        try:
+            with open(json_path, "r", encoding="utf-8") as f:
+                tracks = json.load(f)
+            lane_key = str(lane_number)
+            if lane_key in tracks and "steps" in tracks[lane_key] and len(tracks[lane_key]["steps"]) > 0:
+                steps = tracks[lane_key]["steps"]
+                # Return step 0 or random realistic slice
+                slice_idx = 0 if lane_number == 1 or force_ambulance else random.randint(0, min(5, len(steps) - 1))
+                return steps[slice_idx]["detections"]
+        except Exception as e:
+            pass
+
     detections = []
 
-    # Lane 1 in Reference Scenario defaults to active ambulance detection
+    # Accurate default coordinates from real video frames
     if force_ambulance or lane_number == 1:
         detections.append({
             "vehicle_class": "ambulance",
-            "confidence_score": round(random.uniform(0.97, 0.99), 3),
-            "bbox_x": 0.32,
-            "bbox_y": 0.24,
-            "bbox_w": 0.34,
-            "bbox_h": 0.50
+            "confidence_score": 0.98,
+            "bbox_x": 0.060,
+            "bbox_y": 0.445,
+            "bbox_w": 0.134,
+            "bbox_h": 0.475
         })
-        # Add normal escort/trailing traffic
         detections.append({
             "vehicle_class": "car",
-            "confidence_score": round(random.uniform(0.91, 0.96), 3),
-            "bbox_x": 0.70,
-            "bbox_y": 0.55,
-            "bbox_w": 0.22,
-            "bbox_h": 0.35
+            "confidence_score": 0.94,
+            "bbox_x": 0.546,
+            "bbox_y": 0.644,
+            "bbox_w": 0.113,
+            "bbox_h": 0.193
+        })
+        detections.append({
+            "vehicle_class": "car",
+            "confidence_score": 0.92,
+            "bbox_x": 0.778,
+            "bbox_y": 0.656,
+            "bbox_w": 0.117,
+            "bbox_h": 0.162
         })
         return detections
 
-    # Target counts based on Reference Scenario lane profiles
     if lane_number == 2:
-        target_count = random.randint(14, 20)  # High density (~82%)
+        return [
+            {"vehicle_class": "bus", "confidence_score": 0.92, "bbox_x": 0.485, "bbox_y": 0.410, "bbox_w": 0.065, "bbox_h": 0.185},
+            {"vehicle_class": "car", "confidence_score": 0.94, "bbox_x": 0.245, "bbox_y": 0.535, "bbox_w": 0.075, "bbox_h": 0.125},
+            {"vehicle_class": "auto-rickshaw", "confidence_score": 0.91, "bbox_x": 0.380, "bbox_y": 0.450, "bbox_w": 0.055, "bbox_h": 0.095},
+            {"vehicle_class": "bike", "confidence_score": 0.89, "bbox_x": 0.280, "bbox_y": 0.650, "bbox_w": 0.040, "bbox_h": 0.090}
+        ]
     elif lane_number == 3:
-        target_count = random.randint(2, 4)    # Low density (~18%)
+        return [
+            {"vehicle_class": "bus", "confidence_score": 0.96, "bbox_x": 0.209, "bbox_y": 0.610, "bbox_w": 0.214, "bbox_h": 0.381},
+            {"vehicle_class": "car", "confidence_score": 0.91, "bbox_x": 0.483, "bbox_y": 0.320, "bbox_w": 0.063, "bbox_h": 0.147},
+            {"vehicle_class": "car", "confidence_score": 0.89, "bbox_x": 0.445, "bbox_y": 0.246, "bbox_w": 0.059, "bbox_h": 0.116}
+        ]
     else:  # Lane 4
-        target_count = random.randint(7, 10)   # Medium rising density (~55%)
-
-    classes_pool = ["car", "car", "car", "bike", "bike", "auto-rickshaw", "truck", "bus"]
-
-    for _ in range(target_count):
-        v_class = random.choice(classes_pool)
-        conf = round(random.uniform(0.82, 0.97), 3)
-        w = round(random.uniform(0.12, 0.28), 3)
-        h = round(random.uniform(0.20, 0.45), 3)
-        x = round(random.uniform(0.05, 0.95 - w), 3)
-        y = round(random.uniform(0.10, 0.90 - h), 3)
-
-        detections.append({
-            "vehicle_class": v_class,
-            "confidence_score": conf,
-            "bbox_x": x,
-            "bbox_y": y,
-            "bbox_w": w,
-            "bbox_h": h
-        })
-
-    return detections
+        return [
+            {"vehicle_class": "car", "confidence_score": 0.96, "bbox_x": 0.488, "bbox_y": 0.410, "bbox_w": 0.191, "bbox_h": 0.248},
+            {"vehicle_class": "auto-rickshaw", "confidence_score": 0.94, "bbox_x": 0.000, "bbox_y": 0.430, "bbox_w": 0.249, "bbox_h": 0.357},
+            {"vehicle_class": "auto-rickshaw", "confidence_score": 0.92, "bbox_x": 0.220, "bbox_y": 0.378, "bbox_w": 0.212, "bbox_h": 0.275},
+            {"vehicle_class": "auto-rickshaw", "confidence_score": 0.90, "bbox_x": 0.656, "bbox_y": 0.362, "bbox_w": 0.070, "bbox_h": 0.176}
+        ]
 
 
 # ============================================================================

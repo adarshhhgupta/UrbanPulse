@@ -811,6 +811,8 @@ section {
   z-index: 5;
   display: flex;
   align-items: flex-start;
+  transition: top 0.3s ease-out, left 0.3s ease-out, width 0.3s ease-out, height 0.3s ease-out;
+  pointer-events: none;
 }
 
 .bbox-tag {
@@ -850,6 +852,18 @@ section {
   background-color: rgba(6, 182, 212, 0.15);
 }
 .bbox-bike .bbox-tag { background-color: var(--accent-cyan); color: #000; }
+
+.bbox-auto-rickshaw {
+  border-color: #f59e0b;
+  background-color: rgba(245, 158, 11, 0.20);
+}
+.bbox-auto-rickshaw .bbox-tag { background-color: #d97706; color: #ffffff; }
+
+.bbox-bus {
+  border-color: #8b5cf6;
+  background-color: rgba(139, 92, 246, 0.20);
+}
+.bbox-bus .bbox-tag { background-color: #7c3aed; color: #ffffff; }
 
 /* 3-Lamp Signal Head */
 .lane-telemetry-row {
