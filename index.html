@@ -1,0 +1,3210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Traffic Management System — ML-Based 4-Lane Junction Control</title>
+  <meta name="description" content="Academic engineering major project deliverable: An intelligent 4-lane junction signal control system utilizing YOLOv8 computer vision detection, LSTM predictive congestion modeling, and automated emergency ambulance corridor pre-emption.">
+  <style>
+    /* ==========================================================================
+       DESIGN SYSTEM & CSS RESET
+       Engineering Control-Room Dark Theme (Zero External Dependencies)
+       ========================================================================== */
+    :root {
+      --bg-base: #0b0e14;
+      --bg-panel: #131722;
+      --bg-panel-elevated: #181d2b;
+      --bg-panel-header: #10141f;
+      --border-subtle: #232838;
+      --border-accent: #2e364d;
+      
+      --text-main: #e2e8f0;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      
+      --signal-red: #ef4444;
+      --signal-yellow: #f59e0b;
+      --signal-green: #22c55e;
+      --accent-blue: #3b82f6;
+      --accent-cyan: #06b6d4;
+      --accent-critical: #f43f5e;
+      
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", "Helvetica Neue", Arial, sans-serif;
+      --font-mono: ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      
+      --sidebar-width: 250px;
+      --header-height: 64px;
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      font-size: 14px;
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      line-height: 1.5;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      background-color: var(--bg-base);
+      overflow-x: hidden;
+    }
+
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg-base);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-subtle);
+      border-radius: var(--radius-sm);
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--border-accent);
+    }
+
+    /* Typography & Utilities */
+    h1, h2, h3, h4 {
+      color: #f8fafc;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .font-mono {
+      font-family: var(--font-mono);
+      letter-spacing: -0.02em;
+    }
+    .text-muted { color: var(--text-muted); }
+    .text-dim { color: var(--text-dim); }
+    .text-green { color: var(--signal-green); }
+    .text-red { color: var(--signal-red); }
+    .text-yellow { color: var(--signal-yellow); }
+    .text-blue { color: var(--accent-blue); }
+    .text-critical { color: var(--accent-critical); }
+
+    /* SVG Icon Helpers */
+    .icon {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      stroke-width: 2;
+      stroke: currentColor;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+    .icon-sm {
+      width: 14px;
+      height: 14px;
+    }
+    .icon-lg {
+      width: 24px;
+      height: 24px;
+    }
+
+    /* ==========================================================================
+       SIDEBAR NAVIGATION
+       ========================================================================== */
+    .sidebar {
+      width: var(--sidebar-width);
+      background-color: var(--bg-panel);
+      border-right: 1px solid var(--border-subtle);
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.25s ease-in-out;
+    }
+
+    .sidebar-header {
+      padding: 1.25rem 1rem;
+      border-bottom: 1px solid var(--border-subtle);
+      background-color: var(--bg-panel-header);
+    }
+
+    .project-branding {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .brand-mark {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, #1e293b, #0f172a);
+      border: 1px solid var(--border-accent);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent-blue);
+    }
+
+    .brand-title {
+      font-size: 0.875rem;
+      font-weight: 700;
+      line-height: 1.2;
+      color: #f1f5f9;
+    }
+
+    .brand-subtitle {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+    }
+
+    .system-status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.25rem 0.6rem;
+      background-color: rgba(34, 197, 94, 0.1);
+      border: 1px solid rgba(34, 197, 94, 0.25);
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      color: var(--signal-green);
+      font-weight: 500;
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--signal-green);
+      box-shadow: 0 0 0 rgba(34, 197, 94, 0.6);
+      animation: pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
+    }
+
+    @keyframes pulse-ring {
+      0% {
+        box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+      }
+      70% {
+        box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+      }
+    }
+
+    .sidebar-nav {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.75rem 0.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.65rem 0.85rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .nav-link:hover {
+      background-color: var(--bg-panel-elevated);
+      color: #ffffff;
+    }
+
+    .nav-link.active {
+      background-color: rgba(59, 130, 246, 0.12);
+      color: var(--accent-blue);
+      border-left: 3px solid var(--accent-blue);
+    }
+
+    .sidebar-footer {
+      padding: 0.85rem 1rem;
+      border-top: 1px solid var(--border-subtle);
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Mobile Top Bar / Hamburger Header */
+    .mobile-header {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: var(--header-height);
+      background-color: var(--bg-panel);
+      border-bottom: 1px solid var(--border-subtle);
+      z-index: 101;
+      padding: 0 1rem;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .hamburger-btn {
+      background: none;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      padding: 0.5rem;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sidebar-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(2px);
+      z-index: 99;
+    }
+
+    /* ==========================================================================
+       MAIN CONTENT CONTAINER
+       ========================================================================== */
+    .main-wrapper {
+      margin-left: var(--sidebar-width);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      background-color: var(--bg-base);
+    }
+
+    .content-container {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 2rem 2.5rem;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 3rem;
+    }
+
+    /* Standard Section Structure */
+    section {
+      scroll-margin-top: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .section-header {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 0.75rem;
+    }
+
+    .section-tag {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent-blue);
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+
+    .section-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #f8fafc;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .section-desc {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      max-width: 1100px;
+      line-height: 1.6;
+    }
+
+    /* Standard Panel */
+    .panel {
+      background-color: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 0.85rem 1.25rem;
+      background-color: var(--bg-panel-header);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .panel-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #f1f5f9;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .panel-body {
+      padding: 1.25rem;
+    }
+
+    /* ==========================================================================
+       SECTION 1: OVERVIEW / HERO
+       ========================================================================== */
+    .hero-banner {
+      background: linear-gradient(180deg, rgba(30, 41, 59, 0.4) 0%, rgba(19, 23, 34, 0.8) 100%);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-banner::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent-blue), var(--signal-green), var(--signal-yellow), var(--accent-critical));
+    }
+
+    .hero-top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    .hero-title-group h1 {
+      font-size: 2.1rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.35rem;
+    }
+
+    .hero-subtitle {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      font-weight: 400;
+    }
+
+    .telemetry-clock-card {
+      background-color: #0b0e14;
+      border: 1px solid var(--border-accent);
+      padding: 0.75rem 1.25rem;
+      border-radius: var(--radius-md);
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      min-width: 210px;
+    }
+
+    .clock-time {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--accent-cyan);
+      letter-spacing: 0.05em;
+    }
+
+    .clock-date {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .hero-academic-summary {
+      font-size: 0.95rem;
+      color: #cbd5e1;
+      line-height: 1.65;
+      margin-bottom: 2rem;
+      background-color: rgba(15, 23, 42, 0.5);
+      border-left: 3px solid var(--accent-blue);
+      padding: 1rem 1.25rem;
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .kpi-card {
+      background-color: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1.15rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      position: relative;
+    }
+
+    .kpi-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 600;
+    }
+
+    .kpi-value {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1.1;
+    }
+
+    .kpi-meta {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    /* ==========================================================================
+       SECTION 2: ARCHITECTURE PIPELINE
+       ========================================================================== */
+    .pipeline-container {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      overflow-x: auto;
+      padding: 1.5rem 1rem;
+      background-color: #0d111a;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+    }
+
+    .pipe-node {
+      background-color: var(--bg-panel);
+      border: 1px solid var(--border-accent);
+      border-radius: var(--radius-sm);
+      padding: 1rem 0.85rem;
+      min-width: 170px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      position: relative;
+    }
+
+    .pipe-node-header {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+
+    .pipe-node-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      line-height: 1.3;
+    }
+
+    .pipe-node-badge {
+      align-self: flex-start;
+      margin-top: 0.25rem;
+      font-size: 0.65rem;
+      padding: 0.15rem 0.4rem;
+      background-color: rgba(59, 130, 246, 0.15);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: 3px;
+      color: var(--accent-blue);
+      font-family: var(--font-mono);
+    }
+
+    .pipe-arrow {
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 0.25rem;
+    }
+
+    .arch-dual-model-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 1.5rem;
+      margin-top: 1rem;
+    }
+
+    .dual-model-card {
+      background-color: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1.25rem;
+      line-height: 1.6;
+    }
+
+    .dual-model-card p {
+      color: #cbd5e1;
+      font-size: 0.9rem;
+      margin-bottom: 0.85rem;
+    }
+
+    .tech-stack-panel {
+      background-color: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1.25rem;
+    }
+
+    .tech-badge-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+
+    .tech-tag {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      padding: 0.35rem 0.65rem;
+      background-color: #0b0e14;
+      border: 1px solid var(--border-accent);
+      border-radius: var(--radius-sm);
+      color: #93c5fd;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    /* ==========================================================================
+       SECTION 3: LIVE 4-LANE JUNCTION VIEW
+       ========================================================================== */
+    .emergency-banner {
+      background: linear-gradient(90deg, #881337 0%, #be123c 50%, #9f1239 100%);
+      border: 1px solid #f43f5e;
+      border-radius: var(--radius-md);
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.25rem;
+      box-shadow: 0 0 24px rgba(244, 63, 94, 0.35);
+      animation: alert-pulse 2.5s infinite ease-in-out;
+      flex-wrap: wrap;
+    }
+
+    @keyframes alert-pulse {
+      0%, 100% { border-color: #f43f5e; box-shadow: 0 0 20px rgba(244, 63, 94, 0.3); }
+      50% { border-color: #fda4af; box-shadow: 0 0 35px rgba(244, 63, 94, 0.6); }
+    }
+
+    .emergency-left {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .siren-icon-box {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background-color: rgba(255, 255, 255, 0.15);
+      border: 2px solid #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      animation: siren-spin 1.2s ease-in-out infinite alternate;
+    }
+
+    @keyframes siren-spin {
+      0% { transform: rotate(-15deg) scale(1); }
+      100% { transform: rotate(15deg) scale(1.1); }
+    }
+
+    .emergency-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: 0.02em;
+    }
+
+    .emergency-sub {
+      font-size: 0.85rem;
+      color: #ffe4e6;
+    }
+
+    .emergency-meta-chip {
+      background-color: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      padding: 0.5rem 0.85rem;
+      border-radius: var(--radius-sm);
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: #ffffff;
+    }
+
+    /* 2x2 Lanes Grid */
+    .lanes-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem;
+    }
+
+    .lane-panel {
+      background-color: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .lane-panel.critical-active {
+      border: 1px solid var(--accent-critical);
+      box-shadow: 0 0 16px rgba(244, 63, 94, 0.15);
+    }
+
+    .lane-header {
+      padding: 0.75rem 1.25rem;
+      background-color: var(--bg-panel-header);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .lane-name {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .lane-state-badge {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0.25rem 0.55rem;
+      border-radius: 3px;
+      text-transform: uppercase;
+    }
+
+    .badge-override-green {
+      background-color: rgba(34, 197, 94, 0.15);
+      border: 1px solid var(--signal-green);
+      color: var(--signal-green);
+    }
+
+    .badge-override-hold {
+      background-color: rgba(239, 68, 68, 0.15);
+      border: 1px solid var(--signal-red);
+      color: var(--signal-red);
+    }
+
+    .badge-preempt-standby {
+      background-color: rgba(245, 158, 11, 0.15);
+      border: 1px solid var(--signal-yellow);
+      color: var(--signal-yellow);
+    }
+
+    /* Video Feed Placeholder Area */
+    .video-viewport {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background-color: #07090e;
+      position: relative;
+      overflow: hidden;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    /* Asphalt Road Simulation inside viewport */
+    .road-surface {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at center, #131926 0%, #080a10 85%);
+      opacity: 0.9;
+    }
+
+    .road-lanemark {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: repeating-linear-gradient(90deg, transparent, transparent 15px, rgba(255,255,255,0.2) 15px, rgba(255,255,255,0.2) 35px);
+      transform: translateY(-50%);
+    }
+
+    .camera-hud-overlay {
+      position: absolute;
+      top: 0.6rem;
+      left: 0.75rem;
+      right: 0.75rem;
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      color: rgba(255, 255, 255, 0.75);
+      z-index: 10;
+      pointer-events: none;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+    }
+
+    .rec-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .rec-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: var(--signal-red);
+      animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.2; }
+    }
+
+    /* Bounding Boxes */
+    .bbox {
+      position: absolute;
+      border-width: 2px;
+      border-style: solid;
+      border-radius: 2px;
+      z-index: 5;
+      display: flex;
+      align-items: flex-start;
+      transition: all 0.2s ease;
+    }
+
+    .bbox-tag {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      padding: 0.1rem 0.3rem;
+      color: #ffffff;
+      font-weight: 600;
+      line-height: 1;
+      position: absolute;
+      top: -1.1rem;
+      left: -2px;
+      white-space: nowrap;
+      border-radius: 2px 2px 0 0;
+    }
+
+    .bbox-ambulance {
+      border-color: var(--accent-critical);
+      background-color: rgba(244, 63, 94, 0.18);
+    }
+    .bbox-ambulance .bbox-tag {
+      background-color: var(--accent-critical);
+    }
+
+    .bbox-car {
+      border-color: var(--accent-blue);
+      background-color: rgba(59, 130, 246, 0.15);
+    }
+    .bbox-car .bbox-tag {
+      background-color: var(--accent-blue);
+    }
+
+    .bbox-truck {
+      border-color: var(--signal-yellow);
+      background-color: rgba(245, 158, 11, 0.15);
+    }
+    .bbox-truck .bbox-tag {
+      background-color: var(--signal-yellow);
+      color: #000;
+    }
+
+    .bbox-bike {
+      border-color: var(--accent-cyan);
+      background-color: rgba(6, 182, 212, 0.15);
+    }
+    .bbox-bike .bbox-tag {
+      background-color: var(--accent-cyan);
+      color: #000;
+    }
+
+    /* Lane Telemetry & Signal Head */
+    .lane-telemetry-row {
+      padding: 1rem 1.25rem;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 1.5rem;
+      align-items: center;
+    }
+
+    /* 3-Lamp Vertical Signal Head */
+    .signal-head {
+      width: 44px;
+      background-color: #0a0d14;
+      border: 2px solid #232a3c;
+      border-radius: 22px;
+      padding: 6px 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: center;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.8), 0 4px 8px rgba(0,0,0,0.5);
+    }
+
+    .signal-lamp {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background-color: #1e2433;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      transition: all 0.3s ease;
+    }
+
+    .signal-lamp.lamp-red.active {
+      background-color: var(--signal-red);
+      box-shadow: 0 0 16px var(--signal-red), 0 0 32px rgba(239, 68, 68, 0.5);
+    }
+    .signal-lamp.lamp-yellow.active {
+      background-color: var(--signal-yellow);
+      box-shadow: 0 0 16px var(--signal-yellow), 0 0 32px rgba(245, 158, 11, 0.5);
+    }
+    .signal-lamp.lamp-green.active {
+      background-color: var(--signal-green);
+      box-shadow: 0 0 16px var(--signal-green), 0 0 32px rgba(34, 197, 94, 0.5);
+    }
+
+    .lane-metrics-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+
+    .metrics-data-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+    }
+
+    .density-bar-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .density-bar-bg {
+      height: 8px;
+      background-color: #0a0d14;
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .density-bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.4s ease;
+    }
+
+    .density-low { background-color: var(--signal-green); }
+    .density-med { background-color: var(--signal-yellow); }
+    .density-high { background-color: var(--signal-red); }
+
+    .lane-footer-meta {
+      padding: 0.6rem 1.25rem;
+      background-color: var(--bg-panel-header);
+      border-top: 1px solid var(--border-subtle);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Simulation Control Strip */
+    .sim-toggle-strip {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+      align-items: center;
+    }
+
+    .sim-btn {
+      background-color: var(--bg-panel-elevated);
+      border: 1px solid var(--border-accent);
+      color: var(--text-main);
+      padding: 0.45rem 0.85rem;
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.2s ease;
+    }
+
+    .sim-btn:hover {
+      background-color: #242c40;
+      border-color: var(--accent-blue);
+    }
+
+    /* ==========================================================================
+       SECTION 4: DETECTION MODELS & CONFUSION MATRIX
+       ========================================================================== */
+    .table-responsive {
+      overflow-x: auto;
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      text-align: left;
+    }
+
+    .data-table th {
+      background-color: var(--bg-panel-header);
+      color: var(--text-muted);
+      font-weight: 600;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border-subtle);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .data-table td {
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-main);
+    }
+
+    .data-table tr:hover td {
+      background-color: rgba(255, 255, 255, 0.02);
+    }
+
+    .data-table tr.highlight-row td {
+      background-color: rgba(59, 130, 246, 0.08);
+      font-weight: 500;
+    }
+
+    .badge-best {
+      background-color: rgba(34, 197, 94, 0.15);
+      border: 1px solid var(--signal-green);
+      color: var(--signal-green);
+      padding: 0.15rem 0.4rem;
+      border-radius: 3px;
+      font-size: 0.7rem;
+      font-family: var(--font-mono);
+    }
+
+    .badge-suboptimal {
+      background-color: rgba(245, 158, 11, 0.15);
+      border: 1px solid var(--signal-yellow);
+      color: var(--signal-yellow);
+      padding: 0.15rem 0.4rem;
+      border-radius: 3px;
+      font-size: 0.7rem;
+      font-family: var(--font-mono);
+    }
+
+    .badge-heavy {
+      background-color: rgba(239, 68, 68, 0.15);
+      border: 1px solid var(--signal-red);
+      color: var(--signal-red);
+      padding: 0.15rem 0.4rem;
+      border-radius: 3px;
+      font-size: 0.7rem;
+      font-family: var(--font-mono);
+    }
+
+    /* Confusion Matrix 6x6 */
+    .cm-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      align-items: center;
+      padding: 1.5rem 0;
+    }
+
+    .cm-grid-container {
+      display: grid;
+      grid-template-columns: 120px repeat(6, minmax(65px, 85px));
+      gap: 4px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+    }
+
+    .cm-header-cell {
+      padding: 0.5rem;
+      background-color: var(--bg-panel-header);
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      border-radius: 2px;
+      text-align: center;
+    }
+
+    .cm-row-label {
+      padding: 0.5rem 0.75rem;
+      background-color: var(--bg-panel-header);
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      font-weight: 600;
+      border-radius: 2px;
+    }
+
+    .cm-cell {
+      padding: 0.65rem 0.25rem;
+      border-radius: 2px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      transition: transform 0.15s;
+    }
+
+    .cm-cell:hover {
+      transform: scale(1.05);
+      z-index: 5;
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .cm-cell .cm-pct {
+      font-size: 0.65rem;
+      opacity: 0.75;
+    }
+
+    /* ==========================================================================
+       SECTION 5: PREDICTION ENGINE & PRIORITY RULES
+       ========================================================================== */
+    .chart-container-card {
+      background-color: #0c1018;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+      position: relative;
+    }
+
+    .chart-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.25rem;
+      margin-bottom: 1rem;
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .legend-line {
+      width: 24px;
+      height: 3px;
+      border-radius: 2px;
+    }
+
+    .legend-line.solid-blue { background-color: var(--accent-cyan); }
+    .legend-line.dashed-orange {
+      background: repeating-linear-gradient(90deg, var(--signal-yellow), var(--signal-yellow) 4px, transparent 4px, transparent 8px);
+    }
+    .legend-line.solid-red { background-color: var(--accent-critical); }
+
+    /* Inline SVG Forecast Chart */
+    .svg-chart {
+      width: 100%;
+      height: auto;
+      overflow: visible;
+    }
+
+    /* CSS Bar Comparison for Prediction Metrics */
+    .model-bars-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .bar-metric-card {
+      background-color: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .bar-row {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .bar-row-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+    }
+
+    .bar-track {
+      height: 10px;
+      background-color: #0b0e14;
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 3px;
+    }
+
+    /* ==========================================================================
+       SECTION 6: FEATURE MODULES (6 CARDS GRID)
+       ========================================================================== */
+    .modules-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .module-card {
+      background-color: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+
+    .module-card:hover {
+      border-color: var(--border-accent);
+      transform: translateY(-2px);
+    }
+
+    .module-card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .module-icon-box {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-sm);
+      background-color: var(--bg-panel-elevated);
+      border: 1px solid var(--border-accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent-blue);
+    }
+
+    .module-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #f1f5f9;
+    }
+
+    .module-desc {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      line-height: 1.55;
+    }
+
+    .module-illustration-box {
+      background-color: #0b0e14;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.85rem 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+    }
+
+    /* Spectrogram Simulated Bar visualization */
+    .spectrogram-vis {
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 38px;
+      margin-top: 0.5rem;
+      padding: 2px;
+      background: #06080d;
+      border-radius: 2px;
+    }
+
+    .spec-bar {
+      flex: 1;
+      background: linear-gradient(to top, #3b82f6 0%, #22c55e 50%, #ef4444 100%);
+      border-radius: 1px 1px 0 0;
+    }
+
+    /* ==========================================================================
+       SECTION 7: VIOLATIONS LOG
+       ========================================================================== */
+    .plate-badge {
+      display: inline-block;
+      padding: 0.2rem 0.55rem;
+      background-color: #000000;
+      border: 1.5px solid #facc15;
+      color: #facc15;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.75rem;
+      border-radius: 3px;
+      letter-spacing: 0.05em;
+    }
+
+    /* ==========================================================================
+       SECTION 8: EVALUATION METRICS
+       ========================================================================== */
+    .eval-kpi-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .eval-card {
+      background-color: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 0.75rem;
+      position: relative;
+    }
+
+    /* CSS Circular Progress Dial */
+    .circle-dial {
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      background: conic-gradient(var(--signal-green) 0% 91.3%, #1e2536 91.3% 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      box-shadow: 0 0 15px rgba(34, 197, 94, 0.2);
+    }
+
+    .circle-dial::before {
+      content: "";
+      position: absolute;
+      width: 86px;
+      height: 86px;
+      background-color: var(--bg-panel);
+      border-radius: 50%;
+    }
+
+    .circle-dial-val {
+      position: relative;
+      font-family: var(--font-mono);
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #ffffff;
+    }
+
+    .eval-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .eval-meta {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+    }
+
+    /* ==========================================================================
+       SECTION 9: DATASET SPECIFICATION
+       ========================================================================== */
+    .split-pill {
+      display: inline-flex;
+      background-color: #0b0e14;
+      border: 1px solid var(--border-subtle);
+      border-radius: 999px;
+      padding: 0.15rem 0.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    /* ==========================================================================
+       SECTION 10: DEPLOYMENT PIPELINE
+       ========================================================================== */
+    .deploy-flow {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      overflow-x: auto;
+      padding: 1.5rem 1rem;
+      background-color: #0c1017;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+    }
+
+    .deploy-box {
+      background-color: var(--bg-panel);
+      border: 1px solid var(--border-accent);
+      border-radius: var(--radius-sm);
+      padding: 1.1rem;
+      min-width: 175px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .deploy-box-label {
+      font-size: 0.68rem;
+      color: var(--accent-cyan);
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .deploy-box-title {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .deploy-box-desc {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .deploy-arrow {
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .deploy-notes-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-top: 1rem;
+    }
+
+    /* ==========================================================================
+       FOOTER
+       ========================================================================== */
+    footer {
+      border-top: 1px solid var(--border-subtle);
+      padding: 2.5rem 0 1.5rem 0;
+      margin-top: 4rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      text-align: center;
+    }
+
+    .footer-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #cbd5e1;
+    }
+
+    .footer-sub {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    .footer-disclaimer {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    /* ==========================================================================
+       RESPONSIVE BREAKPOINTS (1920px, 1280px, 900px, 375px)
+       ========================================================================== */
+    @media (max-width: 1280px) {
+      .content-container {
+        padding: 1.75rem 2rem;
+        gap: 2.5rem;
+      }
+      .lanes-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .sidebar {
+        transform: translateX(-100%);
+      }
+      .sidebar.open {
+        transform: translateX(0);
+      }
+      .sidebar-backdrop.active {
+        display: block;
+      }
+      .mobile-header {
+        display: flex;
+      }
+      .main-wrapper {
+        margin-left: 0;
+        padding-top: var(--header-height);
+      }
+      .content-container {
+        padding: 1.25rem 1rem;
+        gap: 2rem;
+      }
+      .lanes-grid {
+        grid-template-columns: 1fr;
+      }
+      .arch-dual-model-grid,
+      .deploy-notes-grid {
+        grid-template-columns: 1fr;
+      }
+      .pipeline-container,
+      .deploy-flow {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .pipe-arrow, .deploy-arrow {
+        transform: rotate(90deg);
+        padding: 0.5rem 0;
+      }
+      .hero-title-group h1 {
+        font-size: 1.6rem;
+      }
+      .telemetry-clock-card {
+        align-items: flex-start;
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .cm-grid-container {
+        grid-template-columns: 80px repeat(6, 48px);
+        font-size: 0.65rem;
+      }
+      .cm-cell {
+        padding: 0.4rem 0.1rem;
+      }
+      .emergency-banner {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- MOBILE HAMBURGER TOP BAR -->
+  <header class="mobile-header" id="mobileHeader">
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <button class="hamburger-btn" id="sidebarToggleBtn" aria-label="Toggle Navigation Menu">
+        <svg class="icon" viewBox="0 0 24 24">
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+      </button>
+      <span style="font-weight: 700; font-size: 0.95rem; color: #f8fafc;">STMS Control Room</span>
+    </div>
+    <div class="system-status-indicator" style="padding: 0.2rem 0.5rem; font-size: 0.7rem;">
+      <span class="pulse-dot"></span> Live
+    </div>
+  </header>
+
+  <!-- SIDEBAR BACKDROP FOR MOBILE -->
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+  <!-- FIXED SIDEBAR NAVIGATION -->
+  <aside class="sidebar" id="sidebarNav">
+    <div class="sidebar-header">
+      <div class="project-branding">
+        <div class="brand-mark">
+          <svg class="icon icon-sm" viewBox="0 0 24 24">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+            <polyline points="2 17 12 22 22 17"></polyline>
+            <polyline points="2 12 12 17 22 12"></polyline>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-title">Smart Traffic Management System</div>
+          <div class="brand-subtitle">ML Junction Control</div>
+        </div>
+      </div>
+      <div class="system-status-indicator">
+        <span class="pulse-dot"></span> System: Live (Telemetry Active)
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <!-- 1. Overview -->
+      <a href="#overview" class="nav-link active">
+        <svg class="icon" viewBox="0 0 24 24">
+          <rect x="3" y="3" width="7" height="7"></rect>
+          <rect x="14" y="3" width="7" height="7"></rect>
+          <rect x="14" y="14" width="7" height="7"></rect>
+          <rect x="3" y="14" width="7" height="7"></rect>
+        </svg>
+        Overview
+      </a>
+      <!-- 2. Architecture -->
+      <a href="#architecture" class="nav-link">
+        <svg class="icon" viewBox="0 0 24 24">
+          <polyline points="16 18 22 12 16 6"></polyline>
+          <polyline points="8 6 2 12 8 18"></polyline>
+        </svg>
+        Architecture
+      </a>
+      <!-- 3. Live Junction -->
+      <a href="#live-junction" class="nav-link">
+        <svg class="icon" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10"></circle>
+          <circle cx="12" cy="12" r="3"></circle>
+        </svg>
+        Live Junction
+      </a>
+      <!-- 4. Detection Models -->
+      <a href="#detection-models" class="nav-link">
+        <svg class="icon" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="22" y1="12" x2="18" y2="12"></line>
+          <line x1="6" y1="12" x2="2" y2="12"></line>
+          <line x1="12" y1="6" x2="12" y2="2"></line>
+          <line x1="12" y1="22" x2="12" y2="18"></line>
+        </svg>
+        Detection Models
+      </a>
+      <!-- 5. Prediction Engine -->
+      <a href="#prediction-engine" class="nav-link">
+        <svg class="icon" viewBox="0 0 24 24">
+          <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+          <polyline points="17 6 23 6 23 12"></polyline>
+        </svg>
+        Prediction Engine
+      </a>
+      <!-- 6. Feature Modules -->
+      <a href="#modules" class="nav-link">
+        <svg class="icon" viewBox="0 0 24 24">
+          <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+          <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+          <line x1="6" y1="6" x2="6.01" y2="6"></line>
+          <line x1="6" y1="18" x2="6.01" y2="18"></line>
+        </svg>
+        Feature Modules
+      </a>
+      <!-- 7. Violations -->
+      <a href="#violations" class="nav-link">
+        <svg class="icon" viewBox="0 0 24 24">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+          <line x1="12" y1="9" x2="12" y2="13"></line>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+        Violations
+      </a>
+      <!-- 8. Evaluation -->
+      <a href="#evaluation" class="nav-link">
+        <svg class="icon" viewBox="0 0 24 24">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+        </svg>
+        Evaluation
+      </a>
+      <!-- 9. Dataset -->
+      <a href="#dataset" class="nav-link">
+        <svg class="icon" viewBox="0 0 24 24">
+          <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+          <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+          <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+        </svg>
+        Dataset
+      </a>
+      <!-- 10. Deployment -->
+      <a href="#deployment" class="nav-link">
+        <svg class="icon" viewBox="0 0 24 24">
+          <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+          <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+          <line x1="12" y1="10" x2="12" y2="14"></line>
+        </svg>
+        Deployment
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <span>NODE: JNC-04-URBAN</span>
+      <span class="text-green">ONLINE</span>
+    </div>
+  </aside>
+
+  <!-- MAIN WORKSPACE CONTENT -->
+  <div class="main-wrapper">
+    <div class="content-container">
+
+      <!-- ====================================================================
+           SECTION 1: HERO / OVERVIEW
+           ==================================================================== -->
+      <section id="overview">
+        <div class="hero-banner">
+          <div class="hero-top-bar">
+            <div class="hero-title-group">
+              <div class="section-tag">Major Academic Engineering Project Deliverable</div>
+              <h1>Smart Traffic Management System</h1>
+              <div class="hero-subtitle">AI-powered 4-lane junction control with ambulance priority and predictive signal timing</div>
+            </div>
+            <!-- Live Digital Clock (Functional JS) -->
+            <div class="telemetry-clock-card">
+              <div class="clock-time font-mono" id="liveClockDisplay">16:42:08</div>
+              <div class="clock-date font-mono" id="liveDateDisplay">2026-09-11 | UTC+05:30</div>
+            </div>
+          </div>
+
+          <!-- Formal Academic Report Summary -->
+          <div class="hero-academic-summary">
+            This project presents an end-to-end intelligent traffic control platform designed to alleviate urban intersection gridlock and prioritize emergency transit. By combining real-time YOLOv8 object detection with multi-horizon Long Short-Term Memory (LSTM) time-series forecasting, the system dynamically calculates phase splits rather than relying on legacy fixed-time controllers. A prioritized rule-based decision matrix ensures deterministic pre-emption for emergency services while preventing starve-out conditions for opposing traffic queues.
+          </div>
+
+          <!-- KPI Stat Chips -->
+          <div class="kpi-grid">
+            <div class="kpi-card">
+              <span class="kpi-label">Lanes Monitored</span>
+              <span class="kpi-value font-mono">4</span>
+              <span class="kpi-meta">Quad-camera video stream</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-label">Detection Model</span>
+              <span class="kpi-value font-mono" style="font-size: 1.5rem; color: #93c5fd;">YOLOv8s</span>
+              <span class="kpi-meta">mAP@0.5: 91.3% | 42 FPS</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-label">Prediction Model</span>
+              <span class="kpi-value font-mono" style="font-size: 1.5rem; color: #fde047;">LSTM</span>
+              <span class="kpi-meta">Seq2Seq 10-min horizon</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-label">Avg. Wait Reduction</span>
+              <span class="kpi-value font-mono text-green">27.4%</span>
+              <span class="kpi-meta">vs. Fixed 60s Cycle (SUMO)</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-label">Ambulance Clear Time</span>
+              <span class="kpi-value font-mono text-critical">8.2s</span>
+              <span class="kpi-meta">Pre-emption delay to green</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-label">System Uptime</span>
+              <span class="kpi-value font-mono text-green">99.6%</span>
+              <span class="kpi-meta">Edge watchdog verified</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           SECTION 2: SYSTEM ARCHITECTURE
+           ==================================================================== -->
+      <section id="architecture">
+        <div class="section-header">
+          <div class="section-tag">System Pipeline & Specifications</div>
+          <h2 class="section-title">
+            <svg class="icon text-blue" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+            System Architecture
+          </h2>
+          <p class="section-desc">
+            End-to-end hardware-software pipeline showing frame acquisition, spatial object detection, temporal density aggregation, queue forecasting, and deterministic relay output.
+          </p>
+        </div>
+
+        <!-- Horizontal/Vertical Responsive Pipeline Flow -->
+        <div class="pipeline-container">
+          <!-- Step 1 -->
+          <div class="pipe-node">
+            <span class="pipe-node-header">Stage 01</span>
+            <span class="pipe-node-title">4x Camera Feed</span>
+            <span class="pipe-node-badge">RTSP 1080p Stream</span>
+          </div>
+          <div class="pipe-arrow">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          </div>
+          <!-- Step 2 -->
+          <div class="pipe-node">
+            <span class="pipe-node-header">Stage 02</span>
+            <span class="pipe-node-title">Frame Extraction</span>
+            <span class="pipe-node-badge">5–10 FPS Sampling</span>
+          </div>
+          <div class="pipe-arrow">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          </div>
+          <!-- Step 3 -->
+          <div class="pipe-node">
+            <span class="pipe-node-header">Stage 03</span>
+            <span class="pipe-node-title">YOLOv8 Detection</span>
+            <span class="pipe-node-badge">Multi-Class BBox</span>
+          </div>
+          <div class="pipe-arrow">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          </div>
+          <!-- Step 4 -->
+          <div class="pipe-node">
+            <span class="pipe-node-header">Stage 04</span>
+            <span class="pipe-node-title">Density Estimation</span>
+            <span class="pipe-node-badge">PCU Weighted Queue</span>
+          </div>
+          <div class="pipe-arrow">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          </div>
+          <!-- Step 5 -->
+          <div class="pipe-node">
+            <span class="pipe-node-header">Stage 05</span>
+            <span class="pipe-node-title">LSTM Prediction</span>
+            <span class="pipe-node-badge">Temporal Congestion</span>
+          </div>
+          <div class="pipe-arrow">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          </div>
+          <!-- Step 6 -->
+          <div class="pipe-node">
+            <span class="pipe-node-header">Stage 06</span>
+            <span class="pipe-node-title">Decision Engine</span>
+            <span class="pipe-node-badge">Priority Rules</span>
+          </div>
+          <div class="pipe-arrow">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          </div>
+          <!-- Step 7 -->
+          <div class="pipe-node">
+            <span class="pipe-node-header">Stage 07</span>
+            <span class="pipe-node-title">Signal Control</span>
+            <span class="pipe-node-badge">Relay / GPIO Actuation</span>
+          </div>
+        </div>
+
+        <!-- Rationale & Tech Stack Grid -->
+        <div class="arch-dual-model-grid">
+          <div class="dual-model-card">
+            <h3 style="margin-bottom: 0.5rem; font-size: 1.05rem;">Detection vs. Prediction: Decoupled Machine Learning Architecture</h3>
+            <p>
+              A critical design decision in this engineering system is the decoupling of <strong>spatial perception</strong> from <strong>temporal forecasting</strong> into two specialized models. The detection model (YOLOv8) operates strictly on spatial single-frame representations to extract discrete vehicle bounding boxes, bounding coordinates, and classification confidence scores at 5–10 FPS per camera.
+            </p>
+            <p>
+              In contrast, the prediction engine (LSTM) processes historical sequences of aggregated passenger-car-unit (PCU) densities across 30-minute sliding windows. Attempting to unify these tasks into a single monolithic end-to-end model causes severe computational latency, catastrophic forgetting during domain shifts, and prevents deterministic rule validation required by municipal transportation safety protocols.
+            </p>
+          </div>
+
+          <div class="tech-stack-panel">
+            <h3 style="font-size: 1.05rem; margin-bottom: 0.25rem;">Core Technology Stack</h3>
+            <span class="text-dim font-mono" style="font-size: 0.75rem;">Libraries, Toolkits & Frameworks</span>
+            <div class="tech-badge-container">
+              <span class="tech-tag">YOLOv8 (Ultralytics)</span>
+              <span class="tech-tag">OpenCV 4.8</span>
+              <span class="tech-tag">PyTorch 2.2</span>
+              <span class="tech-tag">LSTM / GRU</span>
+              <span class="tech-tag">ARIMA Baseline</span>
+              <span class="tech-tag">SUMO Simulator</span>
+              <span class="tech-tag">EasyOCR</span>
+              <span class="tech-tag">Streamlit / Flask</span>
+              <span class="tech-tag">librosa (Audio CNN)</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           SECTION 3: LIVE 4-LANE JUNCTION VIEW
+           ==================================================================== -->
+      <section id="live-junction">
+        <div class="section-header">
+          <div class="section-tag">Real-Time Control Room Telemetry</div>
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem;">
+            <div>
+              <h2 class="section-title">
+                <svg class="icon text-green" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
+                Live 4-Lane Junction View
+              </h2>
+              <p class="section-desc">
+                Synchronized CCTV video perception feeds with real-time bounding box annotations, queue estimation, and illuminated 3-lamp signal heads.
+              </p>
+            </div>
+            <!-- Interactive State Switcher to verify both Emergency Override and Normal Phase -->
+            <div class="sim-toggle-strip">
+              <button class="sim-btn" id="toggleEmergencyBtn" onclick="toggleEmergencyScenario()">
+                <svg class="icon icon-sm text-critical" viewBox="0 0 24 24"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                <span id="emergencyBtnText">Simulate Phase Resumption</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- EMERGENCY OVERRIDE BANNER (Full-width, high visibility, active on load) -->
+        <div class="emergency-banner" id="emergencyBanner">
+          <div class="emergency-left">
+            <div class="siren-icon-box">
+              <svg class="icon icon-lg" viewBox="0 0 24 24">
+                <path d="M12 2a5 5 0 0 0-5 5v3H5a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2a2 2 0 0 0-2-2h-2V7a5 5 0 0 0-5-5z"></path>
+                <line x1="12" y1="18" x2="12" y2="22"></line>
+                <line x1="8" y1="22" x2="16" y2="22"></line>
+              </svg>
+            </div>
+            <div>
+              <div class="emergency-title">EMERGENCY OVERRIDE ENGAGED — AMBULANCE DETECTED IN LANE 1</div>
+              <div class="emergency-sub">
+                Corridor Clearing Protocol: Next downstream node <strong style="color:#fff;">Junction 7</strong> notified via MQTT — pre-emptive green corridor scheduled.
+              </div>
+            </div>
+          </div>
+          <div class="emergency-meta-chip font-mono">
+            CONFIDENCE: <span class="text-green" style="font-weight:700;">0.98</span> | TIME TO HORIZON: 8.2s
+          </div>
+        </div>
+
+        <!-- 2x2 Grid of 4 Lane Panels -->
+        <div class="lanes-grid" id="lanesContainer">
+
+          <!-- LANE 1: AMBULANCE OVERRIDE -->
+          <div class="lane-panel critical-active" id="lane1Panel">
+            <div class="lane-header">
+              <span class="lane-name">
+                <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:var(--accent-critical);"></span>
+                Lane 1 (Northbound)
+              </span>
+              <span class="lane-state-badge badge-override-green" id="lane1Badge">AMBULANCE OVERRIDE — ACTIVE GREEN</span>
+            </div>
+            <!-- Video feed viewport -->
+            <div class="video-viewport">
+              <div class="road-surface"></div>
+              <div class="road-lanemark"></div>
+              <div class="camera-hud-overlay">
+                <span class="rec-indicator"><span class="rec-dot"></span> CAM-01 [LIVE]</span>
+                <span id="hudTimestampL1">FPS: 8.4 | LATENCY: 112ms</span>
+              </div>
+              <!-- Bounding Boxes -->
+              <div class="bbox bbox-ambulance" style="top: 24%; left: 32%; width: 34%; height: 50%;">
+                <span class="bbox-tag">ambulance 0.98</span>
+              </div>
+              <div class="bbox bbox-car" style="top: 55%; left: 70%; width: 22%; height: 35%;">
+                <span class="bbox-tag">car 0.94</span>
+              </div>
+            </div>
+            <!-- Signal Head and Queue Telemetry -->
+            <div class="lane-telemetry-row">
+              <div class="signal-head">
+                <div class="signal-lamp lamp-red" id="lampL1Red"></div>
+                <div class="signal-lamp lamp-yellow" id="lampL1Yellow"></div>
+                <div class="signal-lamp lamp-green active" id="lampL1Green"></div>
+              </div>
+              <div class="lane-metrics-group">
+                <div class="metrics-data-line">
+                  <span class="text-muted">Queue Status:</span>
+                  <span class="font-mono" style="font-weight:700; color:#fff;" id="queueL1">Vehicles in queue: 6 (Ambulance in front)</span>
+                </div>
+                <div class="density-bar-wrapper">
+                  <div class="metrics-data-line">
+                    <span class="text-muted">Density Index:</span>
+                    <span class="font-mono text-green" style="font-weight:600;" id="densityTextL1">42% (Normal Flow)</span>
+                  </div>
+                  <div class="density-bar-bg">
+                    <div class="density-bar-fill density-low" id="barL1" style="width: 42%;"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="lane-footer-meta">
+              <span>LAST FRAME: <span id="tsL1" class="font-mono text-muted">16:42:07.892</span></span>
+              <span class="text-critical font-mono" id="overrideMetaL1">PRIORITY 1 ACTUATION</span>
+            </div>
+          </div>
+
+          <!-- LANE 2: HIGH DENSITY (FORCED RED DURING OVERRIDE) -->
+          <div class="lane-panel" id="lane2Panel">
+            <div class="lane-header">
+              <span class="lane-name">
+                <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:var(--signal-red);"></span>
+                Lane 2 (Eastbound)
+              </span>
+              <span class="lane-state-badge badge-override-hold" id="lane2Badge">HIGH DENSITY (82%) — FORCED RED</span>
+            </div>
+            <div class="video-viewport">
+              <div class="road-surface"></div>
+              <div class="road-lanemark"></div>
+              <div class="camera-hud-overlay">
+                <span class="rec-indicator"><span class="rec-dot"></span> CAM-02 [LIVE]</span>
+                <span id="hudTimestampL2">FPS: 8.1 | LATENCY: 118ms</span>
+              </div>
+              <!-- Overlaid Bounding Boxes -->
+              <div class="bbox bbox-truck" style="top: 18%; left: 10%; width: 28%; height: 55%;">
+                <span class="bbox-tag">truck 0.91</span>
+              </div>
+              <div class="bbox bbox-car" style="top: 35%; left: 42%; width: 22%; height: 42%;">
+                <span class="bbox-tag">car 0.96</span>
+              </div>
+              <div class="bbox bbox-car" style="top: 25%; left: 68%; width: 24%; height: 45%;">
+                <span class="bbox-tag">car 0.89</span>
+              </div>
+            </div>
+            <div class="lane-telemetry-row">
+              <div class="signal-head">
+                <div class="signal-lamp lamp-red active" id="lampL2Red"></div>
+                <div class="signal-lamp lamp-yellow" id="lampL2Yellow"></div>
+                <div class="signal-lamp lamp-green" id="lampL2Green"></div>
+              </div>
+              <div class="lane-metrics-group">
+                <div class="metrics-data-line">
+                  <span class="text-muted">Queue Status:</span>
+                  <span class="font-mono" style="font-weight:700; color:#fff;" id="queueL2">Vehicles in queue: 19</span>
+                </div>
+                <div class="density-bar-wrapper">
+                  <div class="metrics-data-line">
+                    <span class="text-muted">Density Index:</span>
+                    <span class="font-mono text-red" style="font-weight:600;" id="densityTextL2">82% (High Congestion)</span>
+                  </div>
+                  <div class="density-bar-bg">
+                    <div class="density-bar-fill density-high" id="barL2" style="width: 82%;"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="lane-footer-meta">
+              <span>LAST FRAME: <span id="tsL2" class="font-mono text-muted">16:42:07.880</span></span>
+              <span class="text-yellow font-mono" id="overrideMetaL2">NEXT IN DYNAMIC PHASE QUEUE</span>
+            </div>
+          </div>
+
+          <!-- LANE 3: LOW DENSITY -->
+          <div class="lane-panel" id="lane3Panel">
+            <div class="lane-header">
+              <span class="lane-name">
+                <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:var(--signal-red);"></span>
+                Lane 3 (Southbound)
+              </span>
+              <span class="lane-state-badge badge-override-hold" id="lane3Badge">LOW DENSITY — RED</span>
+            </div>
+            <div class="video-viewport">
+              <div class="road-surface"></div>
+              <div class="road-lanemark"></div>
+              <div class="camera-hud-overlay">
+                <span class="rec-indicator"><span class="rec-dot"></span> CAM-03 [LIVE]</span>
+                <span id="hudTimestampL3">FPS: 8.6 | LATENCY: 104ms</span>
+              </div>
+              <!-- Overlaid Bounding Boxes -->
+              <div class="bbox bbox-bike" style="top: 48%; left: 35%; width: 14%; height: 32%;">
+                <span class="bbox-tag">bike 0.87</span>
+              </div>
+              <div class="bbox bbox-car" style="top: 30%; left: 60%; width: 22%; height: 38%;">
+                <span class="bbox-tag">car 0.92</span>
+              </div>
+            </div>
+            <div class="lane-telemetry-row">
+              <div class="signal-head">
+                <div class="signal-lamp lamp-red active" id="lampL3Red"></div>
+                <div class="signal-lamp lamp-yellow" id="lampL3Yellow"></div>
+                <div class="signal-lamp lamp-green" id="lampL3Green"></div>
+              </div>
+              <div class="lane-metrics-group">
+                <div class="metrics-data-line">
+                  <span class="text-muted">Queue Status:</span>
+                  <span class="font-mono" style="font-weight:700; color:#fff;" id="queueL3">Vehicles in queue: 3</span>
+                </div>
+                <div class="density-bar-wrapper">
+                  <div class="metrics-data-line">
+                    <span class="text-muted">Density Index:</span>
+                    <span class="font-mono text-green" style="font-weight:600;" id="densityTextL3">18% (Free Flow)</span>
+                  </div>
+                  <div class="density-bar-bg">
+                    <div class="density-bar-fill density-low" id="barL3" style="width: 18%;"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="lane-footer-meta">
+              <span>LAST FRAME: <span id="tsL3" class="font-mono text-muted">16:42:07.904</span></span>
+              <span class="text-dim font-mono">WAIT TIMER: 44s / 120s</span>
+            </div>
+          </div>
+
+          <!-- LANE 4: PREDICTIVE PRE-EMPTION -->
+          <div class="lane-panel" id="lane4Panel">
+            <div class="lane-header">
+              <span class="lane-name">
+                <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:var(--signal-yellow);"></span>
+                Lane 4 (Westbound)
+              </span>
+              <span class="lane-state-badge badge-preempt-standby" id="lane4Badge">PREDICTIVE PRE-EMPTION QUEUED</span>
+            </div>
+            <div class="video-viewport">
+              <div class="road-surface"></div>
+              <div class="road-lanemark"></div>
+              <div class="camera-hud-overlay">
+                <span class="rec-indicator"><span class="rec-dot"></span> CAM-04 [LIVE]</span>
+                <span id="hudTimestampL4">FPS: 8.3 | LATENCY: 115ms</span>
+              </div>
+              <!-- Overlaid Bounding Boxes -->
+              <div class="bbox bbox-car" style="top: 38%; left: 18%; width: 22%; height: 42%;">
+                <span class="bbox-tag">car 0.93</span>
+              </div>
+              <div class="bbox bbox-car" style="top: 25%; left: 45%; width: 24%; height: 44%;">
+                <span class="bbox-tag">car 0.88</span>
+              </div>
+              <div class="bbox bbox-bike" style="top: 50%; left: 74%; width: 15%; height: 35%;">
+                <span class="bbox-tag">bike 0.91</span>
+              </div>
+            </div>
+            <div class="lane-telemetry-row">
+              <div class="signal-head">
+                <div class="signal-lamp lamp-red active" id="lampL4Red"></div>
+                <div class="signal-lamp lamp-yellow" id="lampL4Yellow"></div>
+                <div class="signal-lamp lamp-green" id="lampL4Green"></div>
+              </div>
+              <div class="lane-metrics-group">
+                <div class="metrics-data-line">
+                  <span class="text-muted">Queue Status:</span>
+                  <span class="font-mono" style="font-weight:700; color:#fff;" id="queueL4">Vehicles in queue: 8 (Rising Surge)</span>
+                </div>
+                <div class="density-bar-wrapper">
+                  <div class="metrics-data-line">
+                    <span class="text-muted">Density Index:</span>
+                    <span class="font-mono text-yellow" style="font-weight:600;" id="densityTextL4">54% (Surge Forecasted)</span>
+                  </div>
+                  <div class="density-bar-bg">
+                    <div class="density-bar-fill density-med" id="barL4" style="width: 54%;"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="lane-footer-meta">
+              <span>LAST FRAME: <span id="tsL4" class="font-mono text-muted">16:42:07.896</span></span>
+              <span class="text-yellow font-mono" id="overrideMetaL4">LSTM forecasts +23% density in 90s — pre-emptive green queued</span>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           SECTION 4: DETECTION MODELS
+           ==================================================================== -->
+      <section id="detection-models">
+        <div class="section-header">
+          <div class="section-tag">Computer Vision Benchmark & Verification</div>
+          <h2 class="section-title">
+            <svg class="icon text-blue" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="22" y1="12" x2="18" y2="12"></line><line x1="6" y1="12" x2="2" y2="12"></line><line x1="12" y1="6" x2="12" y2="2"></line><line x1="12" y1="22" x2="12" y2="18"></line></svg>
+            Detection Models & Confusion Analysis
+          </h2>
+          <p class="section-desc">
+            Empirical latency and precision benchmarks across candidate edge neural network backbones tested on embedded Jetson hardware.
+          </p>
+        </div>
+
+        <!-- Comparison Table -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Model Architecture Comparison Benchmark</span>
+            <span class="font-mono text-dim" style="font-size:0.75rem;">FP16 TensorRT on NVIDIA Jetson Xavier NX</span>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Model</th>
+                  <th>Speed (FPS)</th>
+                  <th>mAP@0.5</th>
+                  <th>Real-Time Suitability</th>
+                  <th>Engineering Justification & Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="highlight-row">
+                  <td><strong>YOLOv8s (Selected)</strong></td>
+                  <td class="font-mono text-green"><strong>42.1 FPS</strong></td>
+                  <td class="font-mono text-green"><strong>91.3%</strong></td>
+                  <td><span class="badge-best">Optimal</span></td>
+                  <td>Best Pareto tradeoff between inference latency, anchor-free accuracy, and small-vehicle recall.</td>
+                </tr>
+                <tr>
+                  <td>YOLOv5s</td>
+                  <td class="font-mono">38.4 FPS</td>
+                  <td class="font-mono">87.6%</td>
+                  <td><span class="badge-best">Viable</span></td>
+                  <td>Anchor-based architecture suffers high false negative rate on overlapping auto-rickshaws and two-wheelers.</td>
+                </tr>
+                <tr>
+                  <td>YOLO-NAS-S</td>
+                  <td class="font-mono">31.2 FPS</td>
+                  <td class="font-mono">89.8%</td>
+                  <td><span class="badge-suboptimal">Marginal</span></td>
+                  <td>High accuracy via neural architecture search, but higher GPU memory footprint limits 4-stream concurrency.</td>
+                </tr>
+                <tr>
+                  <td>Faster R-CNN (ResNet-50)</td>
+                  <td class="font-mono text-red">7.8 FPS</td>
+                  <td class="font-mono text-green">93.2%</td>
+                  <td><span class="badge-heavy">Too Slow</span></td>
+                  <td>Two-stage detector achieves marginal precision gain (+1.9%) at unacceptable 5x latency penalty.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 6x6 Confusion Matrix -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">6x6 Multi-Class Confusion Matrix (YOLOv8s Validation Set, N=4,280)</span>
+            <span class="font-mono text-dim" style="font-size:0.75rem;">Rows: Ground Truth | Columns: Predicted Class</span>
+          </div>
+          <div class="panel-body">
+            <div class="cm-wrapper">
+              <div class="cm-grid-container">
+                <!-- Header Corner -->
+                <div class="cm-header-cell" style="font-size: 0.68rem;">True \ Pred</div>
+                <div class="cm-header-cell">Car</div>
+                <div class="cm-header-cell">Bike</div>
+                <div class="cm-header-cell">Auto</div>
+                <div class="cm-header-cell">Bus</div>
+                <div class="cm-header-cell">Truck</div>
+                <div class="cm-header-cell">Ambulance</div>
+
+                <!-- Row 1: Car -->
+                <div class="cm-row-label">Car</div>
+                <div class="cm-cell" style="background-color: rgba(34, 197, 94, 0.72);">1420<span class="cm-pct">93.4%</span></div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.08);">18<span class="cm-pct">1.2%</span></div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.12);">24<span class="cm-pct">1.6%</span></div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.08);">15<span class="cm-pct">1.0%</span></div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.15);">38<span class="cm-pct">2.5%</span></div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.05);">5<span class="cm-pct">0.3%</span></div>
+
+                <!-- Row 2: Bike -->
+                <div class="cm-row-label">Bike</div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.1);">12<span class="cm-pct">1.3%</span></div>
+                <div class="cm-cell" style="background-color: rgba(34, 197, 94, 0.75);">890<span class="cm-pct">95.1%</span></div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.16);">28<span class="cm-pct">3.0%</span></div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.03);">2<span class="cm-pct">0.2%</span></div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.04);">4<span class="cm-pct">0.4%</span></div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.01);">0<span class="cm-pct">0.0%</span></div>
+
+                <!-- Row 3: Auto-rickshaw -->
+                <div class="cm-row-label">Auto</div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.14);">22<span class="cm-pct">3.1%</span></div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.18);">31<span class="cm-pct">4.3%</span></div>
+                <div class="cm-cell" style="background-color: rgba(34, 197, 94, 0.68);">654<span class="cm-pct">90.8%</span></div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.05);">6<span class="cm-pct">0.8%</span></div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.06);">7<span class="cm-pct">1.0%</span></div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.01);">0<span class="cm-pct">0.0%</span></div>
+
+                <!-- Row 4: Bus -->
+                <div class="cm-row-label">Bus</div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.06);">8<span class="cm-pct">1.8%</span></div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.02);">1<span class="cm-pct">0.2%</span></div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.04);">3<span class="cm-pct">0.7%</span></div>
+                <div class="cm-cell" style="background-color: rgba(34, 197, 94, 0.7);">412<span class="cm-pct">92.6%</span></div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.16);">20<span class="cm-pct">4.5%</span></div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.02);">1<span class="cm-pct">0.2%</span></div>
+
+                <!-- Row 5: Truck -->
+                <div class="cm-row-label">Truck</div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.13);">19<span class="cm-pct">3.3%</span></div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.03);">3<span class="cm-pct">0.5%</span></div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.05);">5<span class="cm-pct">0.9%</span></div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.15);">22<span class="cm-pct">3.8%</span></div>
+                <div class="cm-cell" style="background-color: rgba(34, 197, 94, 0.69);">530<span class="cm-pct">91.1%</span></div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.03);">3<span class="cm-pct">0.5%</span></div>
+
+                <!-- Row 6: Ambulance -->
+                <div class="cm-row-label">Ambulance</div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.08);">6<span class="cm-pct">2.2%</span></div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.01);">0<span class="cm-pct">0.0%</span></div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.02);">1<span class="cm-pct">0.4%</span></div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.04);">2<span class="cm-pct">0.7%</span></div>
+                <div class="cm-cell" style="background-color: rgba(239, 68, 68, 0.18);">14<span class="cm-pct">5.2%</span></div>
+                <div class="cm-cell" style="background-color: rgba(34, 197, 94, 0.71);">245<span class="cm-pct">91.4%</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Academic Discussion on Ambulance Detection Difficulties -->
+        <div class="dual-model-card" style="margin-top: 0;">
+          <h4 style="color:#f1f5f9; margin-bottom: 0.5rem; font-size: 0.95rem;">Why Ambulance Detection is the Most Challenging Class</h4>
+          <p>
+            Ambulance classification represents the most complex perceptual objective in urban traffic computer vision. Standard benchmark corpora (such as MS COCO) do not possess a discrete "ambulance" class, requiring specialized transfer learning. Visually, ambulances share identical chassis silhouettes with delivery vans, utility trucks, and passenger shuttles, differing solely in livery markers (red crescents, caducei) and rooftop flashing beacon lightbars.
+          </p>
+          <p>
+            During severe occlusions in dense bumper-to-bumper jams or low-light night conditions where retroreflective strobe reflections bleed into camera sensors, purely vision-based detectors exhibit borderline confidence. To mitigate this critical safety failure mode, our architecture incorporates a two-stage classifier with high-resolution regional zoom verification combined with an acoustic siren frequency spectrogram CNN fusion pipeline.
+          </p>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           SECTION 5: PREDICTION ENGINE & PRIORITY RULES
+           ==================================================================== -->
+      <section id="prediction-engine">
+        <div class="section-header">
+          <div class="section-tag">Temporal Congestion Forecasting</div>
+          <h2 class="section-title">
+            <svg class="icon text-blue" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+            Prediction Engine & Decision Matrix
+          </h2>
+          <p class="section-desc">
+            Multi-horizon LSTM recurrent neural network forecasting queue accumulation up to 10 minutes into the future to execute pre-emptive signal phasing.
+          </p>
+        </div>
+
+        <!-- Plotted Inline SVG Forecast Line Chart -->
+        <div class="chart-container-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+            <span style="font-weight: 700; color: #fff; font-size: 0.95rem;">30-Minute Historical Observed vs. 10-Minute Predictive Forecast</span>
+            <div class="chart-legend">
+              <span class="legend-item"><span class="legend-line solid-blue"></span> Lane 4 Observed (-30m to Now)</span>
+              <span class="legend-item"><span class="legend-line dashed-orange"></span> Lane 4 LSTM Forecast (+10m)</span>
+              <span class="legend-item"><span class="legend-line solid-red"></span> Pre-emption Threshold (70%)</span>
+            </div>
+          </div>
+
+          <!-- Scalable Vector Graphic Chart -->
+          <svg class="svg-chart" viewBox="0 0 800 280" aria-label="Traffic Density Forecast Chart">
+            <!-- Grid Lines & Background -->
+            <defs>
+              <linearGradient id="forecastArea" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.25"/>
+                <stop offset="100%" stop-color="#f59e0b" stop-opacity="0.0"/>
+              </linearGradient>
+            </defs>
+
+            <!-- Chart Horizontal Gridlines (0%, 25%, 50%, 75%, 100%) -->
+            <line x1="60" y1="30" x2="780" y2="30" stroke="#232838" stroke-width="1" stroke-dasharray="3,3"/>
+            <line x1="60" y1="80" x2="780" y2="80" stroke="#232838" stroke-width="1" stroke-dasharray="3,3"/>
+            <line x1="60" y1="130" x2="780" y2="130" stroke="#232838" stroke-width="1" stroke-dasharray="3,3"/>
+            <line x1="60" y1="180" x2="780" y2="180" stroke="#232838" stroke-width="1" stroke-dasharray="3,3"/>
+            <line x1="60" y1="230" x2="780" y2="230" stroke="#232838" stroke-width="1"/>
+
+            <!-- Y-Axis Numeric Labels -->
+            <text x="50" y="34" fill="#64748b" font-size="11" font-family="var(--font-mono)" text-anchor="end">100%</text>
+            <text x="50" y="84" fill="#64748b" font-size="11" font-family="var(--font-mono)" text-anchor="end">75%</text>
+            <text x="50" y="134" fill="#64748b" font-size="11" font-family="var(--font-mono)" text-anchor="end">50%</text>
+            <text x="50" y="184" fill="#64748b" font-size="11" font-family="var(--font-mono)" text-anchor="end">25%</text>
+            <text x="50" y="234" fill="#64748b" font-size="11" font-family="var(--font-mono)" text-anchor="end">0%</text>
+
+            <!-- Vertical Dividing Line at "Now" -->
+            <line x1="580" y1="20" x2="580" y2="230" stroke="#3b82f6" stroke-width="1.5" stroke-dasharray="4,4"/>
+            <text x="580" y="15" fill="#3b82f6" font-size="11" font-family="var(--font-mono)" text-anchor="middle" font-weight="bold">NOW (T=0)</text>
+
+            <!-- Critical Pre-emption Threshold Line at 70% (Y=90) -->
+            <line x1="60" y1="90" x2="780" y2="90" stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="5,3"/>
+            <text x="775" y="85" fill="#f43f5e" font-size="10" font-family="var(--font-mono)" text-anchor="end">PRE-EMPTION THRESHOLD (70%)</text>
+
+            <!-- Shaded Area Under Prediction Forecast -->
+            <polygon points="580,122 630,105 680,82 730,68 780,52 780,230 580,230" fill="url(#forecastArea)" />
+
+            <!-- Observed Trajectory (Lane 4): T=-30m to T=0 -->
+            <!-- Plotted Points: (60,195) -> (120,185) -> (180,190) -> (240,170) -> (300,165) -> (360,150) -> (420,160) -> (480,140) -> (540,132) -> (580,122) -->
+            <polyline fill="none" stroke="#06b6d4" stroke-width="3" points="
+              60,195 
+              120,185 
+              180,190 
+              240,170 
+              300,165 
+              360,150 
+              420,160 
+              480,140 
+              540,132 
+              580,122
+            "/>
+
+            <!-- Plotted Data Circles (Observed) -->
+            <circle cx="60" cy="195" r="3.5" fill="#06b6d4" />
+            <circle cx="120" cy="185" r="3.5" fill="#06b6d4" />
+            <circle cx="180" cy="190" r="3.5" fill="#06b6d4" />
+            <circle cx="240" cy="170" r="3.5" fill="#06b6d4" />
+            <circle cx="300" cy="165" r="3.5" fill="#06b6d4" />
+            <circle cx="360" cy="150" r="3.5" fill="#06b6d4" />
+            <circle cx="420" cy="160" r="3.5" fill="#06b6d4" />
+            <circle cx="480" cy="140" r="3.5" fill="#06b6d4" />
+            <circle cx="540" cy="132" r="3.5" fill="#06b6d4" />
+            <circle cx="580" cy="122" r="4.5" fill="#ffffff" stroke="#06b6d4" stroke-width="2" />
+
+            <!-- Predicted Forecast Trajectory (Lane 4): T=0 to T=+10m (Dashed) -->
+            <polyline fill="none" stroke="#f59e0b" stroke-width="3" stroke-dasharray="6,4" points="
+              580,122 
+              630,105 
+              680,82 
+              730,68 
+              780,52
+            "/>
+
+            <!-- Plotted Circles (Predicted) -->
+            <circle cx="630" cy="105" r="3.5" fill="#f59e0b" />
+            <circle cx="680" cy="82" r="3.5" fill="#f59e0b" />
+            <circle cx="730" cy="68" r="3.5" fill="#f59e0b" />
+            <circle cx="780" cy="52" r="4.5" fill="#ffffff" stroke="#f59e0b" stroke-width="2" />
+
+            <!-- X-Axis Timestamps -->
+            <text x="60" y="250" fill="#64748b" font-size="11" font-family="var(--font-mono)" text-anchor="middle">-30m</text>
+            <text x="180" y="250" fill="#64748b" font-size="11" font-family="var(--font-mono)" text-anchor="middle">-20m</text>
+            <text x="360" y="250" fill="#64748b" font-size="11" font-family="var(--font-mono)" text-anchor="middle">-10m</text>
+            <text x="580" y="250" fill="#3b82f6" font-size="11" font-family="var(--font-mono)" text-anchor="middle" font-weight="bold">Now (T)</text>
+            <text x="680" y="250" fill="#f59e0b" font-size="11" font-family="var(--font-mono)" text-anchor="middle">+5m</text>
+            <text x="780" y="250" fill="#f59e0b" font-size="11" font-family="var(--font-mono)" text-anchor="middle">+10m</text>
+          </svg>
+        </div>
+
+        <!-- Model Forecast Error Comparison (CSS Bar Chart) -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Forecasting Error Benchmarks: Deep Sequence Models vs. Statistical Baselines</span>
+            <span class="font-mono text-dim" style="font-size:0.75rem;">Horizon = 10 min | Caltrans PeMS + Junction Dataset</span>
+          </div>
+          <div class="panel-body">
+            <div class="model-bars-grid">
+              <!-- LSTM -->
+              <div class="bar-metric-card" style="border-color: rgba(34, 197, 94, 0.4);">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <strong style="color:#22c55e;">LSTM (Proposed)</strong>
+                  <span class="badge-best font-mono">Best Score</span>
+                </div>
+                <div class="bar-row">
+                  <div class="bar-row-label"><span>RMSE (Root Mean Sq. Error):</span> <strong>3.21%</strong></div>
+                  <div class="bar-track"><div class="bar-fill" style="width: 25%; background-color: var(--signal-green);"></div></div>
+                </div>
+                <div class="bar-row">
+                  <div class="bar-row-label"><span>MAE (Mean Absolute Error):</span> <strong>2.44%</strong></div>
+                  <div class="bar-track"><div class="bar-fill" style="width: 22%; background-color: var(--signal-green);"></div></div>
+                </div>
+              </div>
+
+              <!-- GRU -->
+              <div class="bar-metric-card">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <strong>GRU (Gated Recurrent)</strong>
+                  <span class="font-mono text-muted" style="font-size:0.7rem;">Competitive</span>
+                </div>
+                <div class="bar-row">
+                  <div class="bar-row-label"><span>RMSE:</span> <strong>3.58%</strong></div>
+                  <div class="bar-track"><div class="bar-fill" style="width: 28%; background-color: var(--accent-blue);"></div></div>
+                </div>
+                <div class="bar-row">
+                  <div class="bar-row-label"><span>MAE:</span> <strong>2.71%</strong></div>
+                  <div class="bar-track"><div class="bar-fill" style="width: 26%; background-color: var(--accent-blue);"></div></div>
+                </div>
+              </div>
+
+              <!-- ARIMA -->
+              <div class="bar-metric-card">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <strong>ARIMA (p=2, d=1, q=2)</strong>
+                  <span class="badge-suboptimal font-mono">Baseline</span>
+                </div>
+                <div class="bar-row">
+                  <div class="bar-row-label"><span>RMSE:</span> <strong>7.82%</strong></div>
+                  <div class="bar-track"><div class="bar-fill" style="width: 62%; background-color: var(--signal-yellow);"></div></div>
+                </div>
+                <div class="bar-row">
+                  <div class="bar-row-label"><span>MAE:</span> <strong>5.94%</strong></div>
+                  <div class="bar-track"><div class="bar-fill" style="width: 58%; background-color: var(--signal-yellow);"></div></div>
+                </div>
+              </div>
+
+              <!-- Linear Regression -->
+              <div class="bar-metric-card">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <strong>Linear Regression</strong>
+                  <span class="badge-heavy font-mono">Naive</span>
+                </div>
+                <div class="bar-row">
+                  <div class="bar-row-label"><span>RMSE:</span> <strong>11.45%</strong></div>
+                  <div class="bar-track"><div class="bar-fill" style="width: 92%; background-color: var(--signal-red);"></div></div>
+                </div>
+                <div class="bar-row">
+                  <div class="bar-row-label"><span>MAE:</span> <strong>9.10%</strong></div>
+                  <div class="bar-track"><div class="bar-fill" style="width: 89%; background-color: var(--signal-red);"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Decision Engine Priority Rule Table -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Decision Engine: Priority Arbitration Matrix</span>
+            <span class="font-mono text-dim" style="font-size:0.75rem;">Strict Order of Execution: P1 > P2 > P3 > P4</span>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Priority Level</th>
+                  <th>Condition Trigger</th>
+                  <th>Actuation Action & Control Output</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="background-color: rgba(244, 63, 94, 0.08);">
+                  <td><span class="font-mono text-critical" style="font-weight:700;">Priority 1 (Highest)</span><br><strong style="font-size:0.85rem;">Emergency Override</strong></td>
+                  <td>Ambulance detected in any lane (Visual conf &ge; 0.85 OR Audio confirmation)</td>
+                  <td>Instantly terminate active phase with 3s amber clearance; force detected lane GREEN; lock all opposing lanes to RED; dispatch corridor pre-emption message to downstream junction via MQTT.</td>
+                </tr>
+                <tr>
+                  <td><span class="font-mono text-yellow" style="font-weight:700;">Priority 2</span><br><strong style="font-size:0.85rem;">Predictive Congestion</strong></td>
+                  <td>LSTM forecasts density increase &gt; 20% in next 90s (Queue accumulation shock)</td>
+                  <td>Extend current green allocation preemptively or re-order upcoming phase schedule to flush approaching bottleneck before standing queue spills past intersection approach boundaries.</td>
+                </tr>
+                <tr>
+                  <td><span class="font-mono text-blue" style="font-weight:700;">Priority 3</span><br><strong style="font-size:0.85rem;">Current Density</strong></td>
+                  <td>Real-time density comparison across lanes (PCU weighted vehicle count)</td>
+                  <td>Allocate green phase time dynamically and proportionally: higher real-time queue density receives longer phase split according to formula: <span class="font-mono">T_green = base + k &times; PCU</span>.</td>
+                </tr>
+                <tr>
+                  <td><span class="font-mono text-green" style="font-weight:700;">Priority 4 (Fallback)</span><br><strong style="font-size:0.85rem;">Fairness / Starvation</strong></td>
+                  <td>Lane red duration exceeds maximum threshold (&gt; 120s)</td>
+                  <td>Force immediate phase switch to starved approach regardless of low comparative density, guaranteeing upper-bound wait time enforcement for all drivers.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           SECTION 6: FEATURE MODULES
+           ==================================================================== -->
+      <section id="modules">
+        <div class="section-header">
+          <div class="section-tag">Core Technical Capabilities</div>
+          <h2 class="section-title">
+            <svg class="icon text-blue" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+            Feature Modules
+          </h2>
+          <p class="section-desc">
+            Modular subsystems governing dynamic signal timing computation, corridor pre-emption, OCR violation pipelines, and acoustic siren fusion.
+          </p>
+        </div>
+
+        <div class="modules-grid">
+          <!-- Card 1: Dynamic Green-Time -->
+          <div class="module-card">
+            <div class="module-card-header">
+              <div class="module-icon-box">
+                <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              </div>
+              <div class="module-title">Dynamic Green-Time Calculation</div>
+            </div>
+            <div class="module-desc">
+              Computes adaptive phase duration based on real-time vehicle accumulation, preventing unnecessary idle red lights on congested approaches. Phase duration is bounded within safety bounds.
+            </div>
+            <div class="module-illustration-box">
+              <div style="color:var(--accent-cyan); margin-bottom: 0.35rem;">Formula:</div>
+              <div style="font-size:0.85rem; color:#fff; font-weight:600;">green_time = base_time + k &times; vehicle_count</div>
+              <div style="color:var(--text-muted); margin-top:0.4rem; font-size:0.75rem;">
+                Where base_time = 15s, k = 1.2, clamped [15s &ndash; 90s].<br>
+                <strong style="color:var(--signal-green);">Worked Example:</strong> vehicle_count = 24<br>
+                green_time = 15 + (1.2 &times; 24) = <strong>43.8s</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: Emergency Corridor Clearing -->
+          <div class="module-card">
+            <div class="module-card-header">
+              <div class="module-icon-box" style="color: var(--accent-critical);">
+                <svg class="icon" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+              </div>
+              <div class="module-title">Emergency Corridor Clearing</div>
+            </div>
+            <div class="module-desc">
+              Establishes high-priority green waves across consecutive arterial junctions by broadcasting MQTT pre-emption packets before the ambulance reaches downstream intersections.
+            </div>
+            <div class="module-illustration-box">
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:0.25rem 0;">
+                <span style="color:#fff;">Junction N (Current)</span>
+                <span class="text-critical font-mono">&rarr; MQTT Pre-empt &rarr;</span>
+                <span style="color:#fff;">Junction N+1 (Downstream)</span>
+              </div>
+              <div style="color:var(--text-dim); font-size:0.7rem; margin-top:0.35rem;">
+                Estimated travel time: 48s &bull; Pre-emption green scheduled at T+40s to flush residual queues prior to ambulance arrival.
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 3: Starvation Prevention -->
+          <div class="module-card">
+            <div class="module-card-header">
+              <div class="module-icon-box" style="color: var(--signal-yellow);">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path></svg>
+              </div>
+              <div class="module-title">Starvation Prevention</div>
+            </div>
+            <div class="module-desc">
+              Guarantees system equity by imposing a strict upper threshold on continuous red phase duration, ensuring low-density side streets are not perpetually denied passage.
+            </div>
+            <div class="module-illustration-box">
+              <div style="color:var(--signal-yellow); font-weight:600;">Active Watchdog Enforcement:</div>
+              <div style="margin-top:0.35rem; color:#cbd5e1;">
+                "Lane 3 has been red for 118s &mdash; max threshold 120s &mdash; forcing green transition in 2s regardless of main-road queue."
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 4: OCR Violation Detection -->
+          <div class="module-card">
+            <div class="module-card-header">
+              <div class="module-icon-box">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+              </div>
+              <div class="module-title">Number-Plate OCR Violation Detection</div>
+            </div>
+            <div class="module-desc">
+              Automatic License Plate Recognition (ALPR) leveraging EasyOCR, activated exclusively when a vehicle bounding box crosses the virtual stop line during active red signal phases.
+            </div>
+            <div class="module-illustration-box">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span class="plate-badge">KA-05-MJ-4821</span>
+                <span class="text-green font-mono">Conf: 94.8%</span>
+              </div>
+              <div style="color:var(--text-dim); font-size:0.7rem; margin-top:0.4rem;">
+                Polygon virtual tripwire triggers crop buffer &bull; Spatial filtering eliminates zero-speed false triggers.
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 5: Siren Audio Detection Fusion -->
+          <div class="module-card">
+            <div class="module-card-header">
+              <div class="module-icon-box" style="color: var(--accent-critical);">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+              </div>
+              <div class="module-title">Siren Audio Detection Fusion</div>
+            </div>
+            <div class="module-desc">
+              Microphone array audio processing using librosa generates Mel-spectrograms feeding a lightweight 1D-CNN, delivering secondary acoustic confirmation for emergency vehicles.
+            </div>
+            <div class="module-illustration-box">
+              <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:var(--text-muted);">
+                <span>Mel-Frequency Spectrogram (960Hz &ndash; 1440Hz Yelp/Wail)</span>
+                <span class="text-green">Siren Conf: 96.2%</span>
+              </div>
+              <!-- Simulated Mel-Spectrogram bars -->
+              <div class="spectrogram-vis">
+                <div class="spec-bar" style="height: 30%;"></div>
+                <div class="spec-bar" style="height: 45%;"></div>
+                <div class="spec-bar" style="height: 25%;"></div>
+                <div class="spec-bar" style="height: 85%;"></div>
+                <div class="spec-bar" style="height: 95%;"></div>
+                <div class="spec-bar" style="height: 90%;"></div>
+                <div class="spec-bar" style="height: 70%;"></div>
+                <div class="spec-bar" style="height: 40%;"></div>
+                <div class="spec-bar" style="height: 85%;"></div>
+                <div class="spec-bar" style="height: 100%;"></div>
+                <div class="spec-bar" style="height: 92%;"></div>
+                <div class="spec-bar" style="height: 50%;"></div>
+                <div class="spec-bar" style="height: 35%;"></div>
+                <div class="spec-bar" style="height: 60%;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 6: Edge Deployment Pipeline -->
+          <div class="module-card">
+            <div class="module-card-header">
+              <div class="module-icon-box">
+                <svg class="icon" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line></svg>
+              </div>
+              <div class="module-title">Edge Deployment Pipeline</div>
+            </div>
+            <div class="module-desc">
+              Low-latency edge deployment on NVIDIA Jetson Xavier NX / Raspberry Pi 4 coprocessors, driving industrial relay switches to control 220V signal infrastructure.
+            </div>
+            <div class="module-illustration-box">
+              <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem;">
+                <span style="color:#cbd5e1;">Camera &rarr; Jetson &rarr; Relay</span>
+                <span class="font-mono text-green">Latency: &lt; 185ms</span>
+              </div>
+              <div style="color:var(--text-dim); font-size:0.7rem; margin-top:0.35rem;">
+                End-to-end latency budget: Frame acquisition (33ms) + Inference (24ms) + Rule Engine (8ms) + Relay Actuation (120ms).
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           SECTION 7: VIOLATIONS LOG
+           ==================================================================== -->
+      <section id="violations">
+        <div class="section-header">
+          <div class="section-tag">Automated Enforcement Telemetry</div>
+          <h2 class="section-title">
+            <svg class="icon text-red" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            Violations Log (OCR Stop-Line Infringements)
+          </h2>
+          <p class="section-desc">
+            Immutable digital event register generated by EasyOCR. OCR is invoked selectively only when vehicle centroid kinematics intersect the virtual stop line while the corresponding signal head is in active RED status.
+          </p>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Real-Time Red-Light Infringement Log</span>
+            <span class="font-mono text-dim" style="font-size:0.75rem;">Showing 6 Most Recent Events</span>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Lane</th>
+                  <th>Plate Number</th>
+                  <th>Confidence</th>
+                  <th>Violation Type</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="font-mono text-muted">2026-09-11 16:39:12.41</td>
+                  <td><strong>Lane 2 (Eastbound)</strong></td>
+                  <td><span class="plate-badge">KA-05-MJ-4821</span></td>
+                  <td class="font-mono text-green">94.8%</td>
+                  <td><span class="text-red font-mono" style="font-weight:600;">Red-Light Stop-Line Breach</span></td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-muted">2026-09-11 16:34:48.19</td>
+                  <td><strong>Lane 3 (Southbound)</strong></td>
+                  <td><span class="plate-badge">DL-01-AB-1204</span></td>
+                  <td class="font-mono text-green">96.2%</td>
+                  <td><span class="text-red font-mono" style="font-weight:600;">Red-Light Stop-Line Breach</span></td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-muted">2026-09-11 16:28:05.77</td>
+                  <td><strong>Lane 2 (Eastbound)</strong></td>
+                  <td><span class="plate-badge">MH-12-TR-9082</span></td>
+                  <td class="font-mono text-green">92.1%</td>
+                  <td><span class="text-red font-mono" style="font-weight:600;">Full Junction Traversal on Red</span></td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-muted">2026-09-11 16:15:22.03</td>
+                  <td><strong>Lane 4 (Westbound)</strong></td>
+                  <td><span class="plate-badge">TN-09-BK-3319</span></td>
+                  <td class="font-mono text-green">95.4%</td>
+                  <td><span class="text-red font-mono" style="font-weight:600;">Red-Light Stop-Line Breach</span></td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-muted">2026-09-11 16:02:59.88</td>
+                  <td><strong>Lane 3 (Southbound)</strong></td>
+                  <td><span class="plate-badge">HR-26-DK-7711</span></td>
+                  <td class="font-mono text-green">91.6%</td>
+                  <td><span class="text-red font-mono" style="font-weight:600;">Illegal Left Turn on Red</span></td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-muted">2026-09-11 15:48:33.15</td>
+                  <td><strong>Lane 1 (Northbound)</strong></td>
+                  <td><span class="plate-badge">KA-03-HA-5542</span></td>
+                  <td class="font-mono text-green">97.3%</td>
+                  <td><span class="text-red font-mono" style="font-weight:600;">Red-Light Stop-Line Breach</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           SECTION 8: EVALUATION METRICS
+           ==================================================================== -->
+      <section id="evaluation">
+        <div class="section-header">
+          <div class="section-tag">Validation & Microscopic Simulation</div>
+          <h2 class="section-title">
+            <svg class="icon text-green" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
+            Evaluation Metrics & Simulation Results
+          </h2>
+          <p class="section-desc">
+            Quantitative assessment of perception accuracy, regression forecasting fidelity, and macroscopic delay reduction evaluated through microscopic traffic simulations.
+          </p>
+        </div>
+
+        <!-- 4 KPI/Gauge Cards -->
+        <div class="eval-kpi-row">
+          <!-- Card 1: Detection mAP -->
+          <div class="eval-card">
+            <div class="circle-dial">
+              <span class="circle-dial-val">91.3%</span>
+            </div>
+            <div class="eval-title">Detection mAP@0.5</div>
+            <div class="eval-meta">Evaluated across 6 vehicle classes on test split</div>
+          </div>
+
+          <!-- Card 2: Prediction RMSE vs ARIMA -->
+          <div class="eval-card">
+            <div style="display:flex; align-items:baseline; gap:0.5rem; margin: 1.25rem 0 0.5rem 0;">
+              <span class="font-mono text-green" style="font-size:2.2rem; font-weight:800;">3.2</span>
+              <span class="font-mono text-muted" style="font-size:1.1rem;">vs 7.8</span>
+            </div>
+            <div class="eval-title">Prediction RMSE vs. ARIMA</div>
+            <div class="eval-meta"><strong class="text-green">58.9% error reduction</strong> over ARIMA baseline</div>
+          </div>
+
+          <!-- Card 3: Wait-Time Reduction -->
+          <div class="eval-card">
+            <div style="display:flex; align-items:baseline; gap:0.25rem; margin: 1.25rem 0 0.5rem 0;">
+              <span class="font-mono text-green" style="font-size:2.2rem; font-weight:800;">27.4%</span>
+            </div>
+            <div class="eval-title">Avg. Wait-Time Reduction</div>
+            <div class="eval-meta">Validated vs. 60s Fixed-Timer in SUMO simulator</div>
+          </div>
+
+          <!-- Card 4: Ambulance Clearance Time -->
+          <div class="eval-card">
+            <div style="display:flex; align-items:baseline; gap:0.25rem; margin: 1.25rem 0 0.5rem 0;">
+              <span class="font-mono text-critical" style="font-size:2.2rem; font-weight:800;">8.2s</span>
+            </div>
+            <div class="eval-title">Ambulance Clearance Time</div>
+            <div class="eval-meta">Mean latency from detection to full green corridor</div>
+          </div>
+        </div>
+
+        <!-- Academic Simulation Description -->
+        <div class="dual-model-card" style="margin-top: 0.5rem;">
+          <h4 style="color:#f1f5f9; margin-bottom: 0.5rem; font-size: 0.95rem;">Microscopic Traffic Simulation via SUMO (Simulation of Urban Mobility)</h4>
+          <p>
+            To evaluate the efficacy of the proposed dynamic signal control framework against real-world traffic benchmarks without risking roadway disruptions, extensive synthetic experiments were performed inside the <strong>SUMO (Simulation of Urban Mobility)</strong> microscopic traffic simulator. A high-fidelity model of an asymmetrical 4-lane intersection was constructed, complete with realistic acceleration curves, car-following Krauss dynamics, lane-changing models, and empirical origin-destination matrices.
+          </p>
+          <p>
+            Over 200 simulation hours spanning peak-hour surges (1,800 vehicles/hour/approach) and off-peak periods, the proposed YOLOv8-LSTM adaptive framework reduced mean intersection vehicle wait times by <strong>27.4%</strong> (from 48.2s down to 35.0s per vehicle) and cut 95th-percentile queue lengths by 34.1% compared to a conventional fixed-time cycle controller. Crucially, in 50 randomized emergency vehicle injection trials, average clearance latency was compressed to 8.2 seconds, eliminating stationary queue blockage for arriving ambulances.
+          </p>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           SECTION 9: DATASET SPECIFICATION
+           ==================================================================== -->
+      <section id="dataset">
+        <div class="section-header">
+          <div class="section-tag">Data Engineering & Provenance</div>
+          <h2 class="section-title">
+            <svg class="icon text-blue" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+            Dataset Specifications & Splits
+          </h2>
+          <p class="section-desc">
+            Summary of pre-training, domain-adaptation, fine-tuning, and time-series traffic density corpora employed across system modules.
+          </p>
+        </div>
+
+        <div class="panel">
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Dataset</th>
+                  <th>Engineering Purpose</th>
+                  <th>Sample Count / Size</th>
+                  <th>Train / Val / Test Split</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>MS COCO 2017</strong></td>
+                  <td>General vehicle feature extractor pre-training (cars, buses, trucks, motorcycles)</td>
+                  <td class="font-mono text-muted">118,287 annotated frames</td>
+                  <td><span class="split-pill">80% / 10% / 10%</span></td>
+                </tr>
+                <tr>
+                  <td><strong>IDD (Indian Driving Dataset)</strong></td>
+                  <td>Domain adaptation for unstructured traffic: auto-rickshaws, high density two-wheelers</td>
+                  <td class="font-mono text-muted">32,410 labeled images</td>
+                  <td><span class="split-pill">70% / 15% / 15%</span></td>
+                </tr>
+                <tr>
+                  <td><strong>Roboflow Custom Ambulance Set</strong></td>
+                  <td>Fine-tuning YOLOv8 for emergency vehicle chassis, roof lightbars, and color schemes</td>
+                  <td class="font-mono text-muted">4,850 augmented images</td>
+                  <td><span class="split-pill">70% / 20% / 10%</span></td>
+                </tr>
+                <tr>
+                  <td><strong>Own Recorded Junction Footage</strong></td>
+                  <td>Real-world 4-camera validation set collected at 1080p under varying weather & light</td>
+                  <td class="font-mono text-muted">6,200 verified frames</td>
+                  <td><span class="split-pill">0% / 50% / 50% (Eval only)</span></td>
+                </tr>
+                <tr>
+                  <td><strong>Caltrans PeMS Traffic Density Data</strong></td>
+                  <td>LSTM temporal sequence training for 5-min and 10-min queue accumulation forecasting</td>
+                  <td class="font-mono text-muted">52,000 hourly time-series points</td>
+                  <td><span class="split-pill">80% / 10% / 10%</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           SECTION 10: DEPLOYMENT
+           ==================================================================== -->
+      <section id="deployment">
+        <div class="section-header">
+          <div class="section-tag">Edge Hardware & Distributed Topology</div>
+          <h2 class="section-title">
+            <svg class="icon text-blue" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="12" y1="10" x2="12" y2="14"></line></svg>
+            Deployment Pipeline & Hardware Topology
+          </h2>
+          <p class="section-desc">
+            Physical on-premise junction deployment schematics connecting pole-mounted CCTV cameras to edge compute units and central traffic telemetry servers.
+          </p>
+        </div>
+
+        <!-- Deployment Flow Diagram -->
+        <div class="deploy-flow">
+          <div class="deploy-box">
+            <span class="deploy-box-label">Perception Input</span>
+            <span class="deploy-box-title">IP Cameras (x4)</span>
+            <span class="deploy-box-desc">RTSP H.264 streams over Gigabit PoE ethernet.</span>
+          </div>
+          <div class="deploy-arrow">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          </div>
+          <div class="deploy-box">
+            <span class="deploy-box-label">Edge Coprocessor</span>
+            <span class="deploy-box-title">Jetson Xavier NX</span>
+            <span class="deploy-box-desc">TensorRT FP16 inference engine running YOLOv8s.</span>
+          </div>
+          <div class="deploy-arrow">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          </div>
+          <div class="deploy-box">
+            <span class="deploy-box-label">Control Logic</span>
+            <span class="deploy-box-title">Decision Engine</span>
+            <span class="deploy-box-desc">Local deterministic priority rules & fail-safe timers.</span>
+          </div>
+          <div class="deploy-arrow">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          </div>
+          <div class="deploy-box">
+            <span class="deploy-box-label">Physical Actuation</span>
+            <span class="deploy-box-title">Relay / PLC Board</span>
+            <span class="deploy-box-desc">Solid-state relays actuating 220V signal lamps.</span>
+          </div>
+          <div class="deploy-arrow">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          </div>
+          <div class="deploy-box">
+            <span class="deploy-box-label">Central Telemetry</span>
+            <span class="deploy-box-title">Central Monitoring</span>
+            <span class="deploy-box-desc">MQTT / WebSockets streaming to this web dashboard.</span>
+          </div>
+        </div>
+
+        <!-- Scalability and Limitations Discussion -->
+        <div class="deploy-notes-grid">
+          <div class="dual-model-card">
+            <h4 style="color:#f1f5f9; margin-bottom: 0.5rem; font-size: 0.95rem;">System Scalability & City-Wide Grid Expansion</h4>
+            <p>
+              The modular architecture is inherently designed for horizontal scalability across distributed urban road grids. Because each junction executes inference and priority arbitration locally on dedicated edge hardware, bandwidth requirements to central traffic headquarters are strictly limited to lightweight JSON telemetry payloads (less than 15 KB/s per junction).
+            </p>
+            <p>
+              Inter-junction coordination is achieved via lightweight publish-subscribe MQTT brokers over municipal fiber or 5G private APNs. When an ambulance priority event occurs at node <em>J</em>, an upstream pre-emption message propagates along the planned navigation corridor, allowing downstream nodes to clear standing queues prior to vehicle arrival without requiring centralized monolithic computing clusters.
+            </p>
+          </div>
+
+          <div class="dual-model-card">
+            <h4 style="color:#f1f5f9; margin-bottom: 0.5rem; font-size: 0.95rem;">Current Engineering Limitations & Future Work</h4>
+            <p>
+              While the system achieves high reliability under standard daylight conditions, several physical and environmental constraints exist. In torrential monsoon rain, lens splash distortion and severe lens glare degrade computer vision mAP by up to 14.8%. Heavy bumper-to-bumper occlusions where smaller two-wheelers are masked behind large commercial trucks occasionally induce queue estimation errors.
+            </p>
+            <p>
+              Additionally, thermal dissipation and initial capital expenditure for ruggedized IP67 edge AI compute enclosures present budgetary constraints for broad municipal rollouts. Future iterations plan to integrate 77 GHz millimeter-wave radar fusion to preserve high detection accuracy during zero-visibility fog and night conditions.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           FOOTER
+           ==================================================================== -->
+      <footer>
+        <div class="footer-title">Smart Traffic Management System &mdash; ML Junction Control</div>
+        <div class="footer-sub">Major Project &bull; Traffic Management using Machine Learning &bull; Computer Science & Engineering</div>
+        <div class="footer-disclaimer">
+          All metrics shown are illustrative placeholders &mdash; replace with measured results after model training and SUMO validation. Designed for high-density 4-lane intersection telemetry.
+        </div>
+      </footer>
+
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       INLINE JAVASCRIPT (Zero Dependencies, Fully Implemented)
+       ======================================================================== -->
+  <script>
+    /* ==========================================================================
+       1. LIVE DIGITAL CLOCK & TELEMETRY DATE
+       ========================================================================== */
+    function updateClock() {
+      const now = new Date();
+      
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+      const timeStr = `${hours}:${minutes}:${seconds}`;
+
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const dayName = daysOfWeek[now.getDay()];
+      const dateStr = `${year}-${month}-${day} (${dayName}) | UTC+05:30`;
+
+      const clockEl = document.getElementById('liveClockDisplay');
+      const dateEl = document.getElementById('liveDateDisplay');
+
+      if (clockEl) clockEl.textContent = timeStr;
+      if (dateEl) dateEl.textContent = dateStr;
+
+      // Also update milliseconds timestamps in live junction feed to simulate streaming frames
+      const ms = String(now.getMilliseconds()).padStart(3, '0');
+      const feedTime = `${timeStr}.${ms}`;
+      ['tsL1', 'tsL2', 'tsL3', 'tsL4'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = feedTime;
+      });
+    }
+
+    // Initialize clock immediately, then tick every 1000ms
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    /* ==========================================================================
+       2. MOBILE SIDEBAR TOGGLE LOGIC
+       ========================================================================== */
+    const sidebarNav = document.getElementById('sidebarNav');
+    const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+    const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+
+    function toggleSidebar() {
+      if (!sidebarNav) return;
+      const isOpen = sidebarNav.classList.contains('open');
+      if (isOpen) {
+        sidebarNav.classList.remove('open');
+        sidebarBackdrop.classList.remove('active');
+      } else {
+        sidebarNav.classList.add('open');
+        sidebarBackdrop.classList.add('active');
+      }
+    }
+
+    if (sidebarToggleBtn) {
+      sidebarToggleBtn.addEventListener('click', toggleSidebar);
+    }
+    if (sidebarBackdrop) {
+      sidebarBackdrop.addEventListener('click', toggleSidebar);
+    }
+
+    // Close sidebar on link click when in mobile viewport
+    const navLinks = document.querySelectorAll('.nav-link');
+    navLinks.forEach(link => {
+      link.addEventListener('click', () => {
+        if (window.innerWidth <= 900) {
+          sidebarNav.classList.remove('open');
+          sidebarBackdrop.classList.remove('active');
+        }
+      });
+    });
+
+    /* ==========================================================================
+       3. ACTIVE SCROLL SPY FOR SIDEBAR NAVIGATION
+       ========================================================================== */
+    window.addEventListener('scroll', () => {
+      const sections = document.querySelectorAll('section');
+      const scrollPos = window.scrollY + 120;
+
+      sections.forEach(sec => {
+        const top = sec.offsetTop;
+        const height = sec.offsetHeight;
+        const id = sec.getAttribute('id');
+
+        if (scrollPos >= top && scrollPos < top + height) {
+          navLinks.forEach(link => {
+            link.classList.remove('active');
+            if (link.getAttribute('href') === `#${id}`) {
+              link.classList.add('active');
+            }
+          });
+        }
+      });
+    });
+
+    /* ==========================================================================
+       4. EMERGENCY OVERRIDE & DYNAMIC PHASE SWITCHER (SIMULATION TOGGLE)
+       Ensures complete data consistency while giving evaluators interactive control
+       ========================================================================== */
+    let isEmergencyActive = true;
+
+    function toggleEmergencyScenario() {
+      isEmergencyActive = !isEmergencyActive;
+      const banner = document.getElementById('emergencyBanner');
+      const btnText = document.getElementById('emergencyBtnText');
+
+      // Lane 1 elements
+      const lane1Panel = document.getElementById('lane1Panel');
+      const lane1Badge = document.getElementById('lane1Badge');
+      const lampL1Red = document.getElementById('lampL1Red');
+      const lampL1Green = document.getElementById('lampL1Green');
+      const overrideMetaL1 = document.getElementById('overrideMetaL1');
+
+      // Lane 2 elements
+      const lane2Panel = document.getElementById('lane2Panel');
+      const lane2Badge = document.getElementById('lane2Badge');
+      const lampL2Red = document.getElementById('lampL2Red');
+      const lampL2Green = document.getElementById('lampL2Green');
+      const overrideMetaL2 = document.getElementById('overrideMetaL2');
+
+      // Lane 3 elements
+      const lane3Badge = document.getElementById('lane3Badge');
+      const lampL3Red = document.getElementById('lampL3Red');
+
+      // Lane 4 elements
+      const lane4Badge = document.getElementById('lane4Badge');
+      const lampL4Red = document.getElementById('lampL4Red');
+      const lampL4Yellow = document.getElementById('lampL4Yellow');
+      const lampL4Green = document.getElementById('lampL4Green');
+      const overrideMetaL4 = document.getElementById('overrideMetaL4');
+
+      if (isEmergencyActive) {
+        // --- State 1: Active Emergency Mode (Global Rule Default) ---
+        // Lane 1: Green, other 3 lanes: Red, Banner: visible
+        if (banner) banner.style.display = 'flex';
+        if (btnText) btnText.textContent = 'Simulate Phase Resumption';
+
+        // Lane 1
+        if (lane1Panel) lane1Panel.classList.add('critical-active');
+        if (lane1Badge) {
+          lane1Badge.className = 'lane-state-badge badge-override-green';
+          lane1Badge.textContent = 'AMBULANCE OVERRIDE — ACTIVE GREEN';
+        }
+        if (lampL1Red) lampL1Red.classList.remove('active');
+        if (lampL1Green) lampL1Green.classList.add('active');
+        if (overrideMetaL1) overrideMetaL1.textContent = 'PRIORITY 1 ACTUATION';
+
+        // Lane 2 (High density 82%, held on red by override)
+        if (lane2Badge) {
+          lane2Badge.className = 'lane-state-badge badge-override-hold';
+          lane2Badge.textContent = 'HIGH DENSITY (82%) — FORCED RED';
+        }
+        if (lampL2Red) lampL2Red.classList.add('active');
+        if (lampL2Green) lampL2Green.classList.remove('active');
+        if (overrideMetaL2) overrideMetaL2.textContent = 'NEXT IN DYNAMIC PHASE QUEUE';
+
+        // Lane 3 (Low density 18%, red)
+        if (lane3Badge) {
+          lane3Badge.className = 'lane-state-badge badge-override-hold';
+          lane3Badge.textContent = 'LOW DENSITY — RED';
+        }
+        if (lampL3Red) lampL3Red.classList.add('active');
+
+        // Lane 4 (Predictive Pre-emption standby, held on red)
+        if (lane4Badge) {
+          lane4Badge.className = 'lane-state-badge badge-preempt-standby';
+          lane4Badge.textContent = 'PREDICTIVE PRE-EMPTION QUEUED';
+        }
+        if (lampL4Red) lampL4Red.classList.add('active');
+        if (lampL4Yellow) lampL4Yellow.classList.remove('active');
+        if (lampL4Green) lampL4Green.classList.remove('active');
+        if (overrideMetaL4) overrideMetaL4.textContent = 'LSTM forecasts +23% density in 90s — pre-emptive green queued';
+
+      } else {
+        // --- State 2: Emergency Cleared / Dynamic Adaptive Phase Resumed ---
+        if (banner) banner.style.display = 'none';
+        if (btnText) btnText.textContent = 'Trigger Ambulance Override (Lane 1)';
+
+        // Lane 1 returned to Red
+        if (lane1Panel) lane1Panel.classList.remove('critical-active');
+        if (lane1Badge) {
+          lane1Badge.className = 'lane-state-badge';
+          lane1Badge.style.backgroundColor = 'rgba(239, 68, 68, 0.15)';
+          lane1Badge.style.color = 'var(--signal-red)';
+          lane1Badge.style.border = '1px solid var(--signal-red)';
+          lane1Badge.textContent = 'CLEARED — PHASE TERMINATED';
+        }
+        if (lampL1Red) lampL1Red.classList.add('active');
+        if (lampL1Green) lampL1Green.classList.remove('active');
+        if (overrideMetaL1) overrideMetaL1.textContent = 'NORMAL RESTING PHASE';
+
+        // Lane 2 (High density 82%) gets Green
+        if (lane2Badge) {
+          lane2Badge.className = 'lane-state-badge badge-override-green';
+          lane2Badge.textContent = 'HIGH DENSITY (82%) — ACTIVE GREEN';
+        }
+        if (lampL2Red) lampL2Red.classList.remove('active');
+        if (lampL2Green) lampL2Green.classList.add('active');
+        if (overrideMetaL2) overrideMetaL2.textContent = 'DYNAMIC ALLOCATION: 52s REMAINING';
+
+        // Lane 4 (Pre-emption countdown active)
+        if (lane4Badge) {
+          lane4Badge.className = 'lane-state-badge badge-preempt-standby';
+          lane4Badge.textContent = 'PREDICTIVE PRE-EMPTION IMMINENT';
+        }
+        if (lampL4Yellow) lampL4Yellow.classList.add('active');
+        if (lampL4Red) lampL4Red.classList.remove('active');
+        if (overrideMetaL4) overrideMetaL4.textContent = 'PRE-EMPTIVE GREEN IN T-14s';
+      }
+    }
+  </script>
+</body>
+</html>
