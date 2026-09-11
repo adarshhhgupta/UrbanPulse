@@ -1,13 +1,10 @@
 import React, { useState } from 'react';
 import Sidebar from './components/Sidebar';
 import Overview from './components/Overview';
-import Architecture from './components/Architecture';
 import LiveJunction from './components/LiveJunction';
 import DetectionModels from './components/DetectionModels';
 import PredictionEngine from './components/PredictionEngine';
 import Modules from './components/Modules';
-import Dataset from './components/Dataset';
-import Deployment from './components/Deployment';
 import Violations from './components/Violations';
 import Evaluation from './components/Evaluation';
 import Footer from './components/Footer';
@@ -45,13 +42,10 @@ export default function App() {
       <div className="main-wrapper">
         <div className="content-container">
           <Overview />
-          <Architecture />
           <LiveJunction />
           <DetectionModels />
           <PredictionEngine />
           <Modules />
-          <Dataset />
-          <Deployment />
           <Violations />
           <Evaluation />
           <Footer />

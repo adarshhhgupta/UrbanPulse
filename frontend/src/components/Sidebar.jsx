@@ -12,12 +12,6 @@ export default function Sidebar({ isOpen, onToggle }) {
         <rect x="3" y="14" width="7" height="7" />
       </svg>
     )},
-    { id: 'architecture', label: 'Architecture', icon: (
-      <svg className="icon" viewBox="0 0 24 24">
-        <polyline points="16 18 22 12 16 6" />
-        <polyline points="8 6 2 12 8 18" />
-      </svg>
-    )},
     { id: 'live-junction', label: 'Live Junction', icon: (
       <svg className="icon" viewBox="0 0 24 24">
         <circle cx="12" cy="12" r="10" />
@@ -45,20 +39,6 @@ export default function Sidebar({ isOpen, onToggle }) {
         <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
         <line x1="6" y1="6" x2="6.01" y2="6" />
         <line x1="6" y1="18" x2="6.01" y2="18" />
-      </svg>
-    )},
-    { id: 'dataset', label: 'Dataset Specs', icon: (
-      <svg className="icon" viewBox="0 0 24 24">
-        <ellipse cx="12" cy="5" rx="9" ry="3" />
-        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
-        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-      </svg>
-    )},
-    { id: 'deployment', label: 'Deployment', icon: (
-      <svg className="icon" viewBox="0 0 24 24">
-        <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
-        <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
-        <line x1="12" y1="10" x2="12" y2="14" />
       </svg>
     )},
     { id: 'violations', label: 'Violations', icon: (
