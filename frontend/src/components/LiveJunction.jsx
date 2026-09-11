@@ -260,6 +260,14 @@ export default function LiveJunction() {
                 <div className="video-viewport">
                   <div className="road-surface" />
                   <div className="road-lanemark" />
+                  <video
+                    src={`/videos/lane${lane.lane_number}.mp4`}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="lane-video-element"
+                  />
                   <div className="camera-hud-overlay">
                     <span className="rec-indicator"><span className="rec-dot" /> CAM-0{lane.lane_number} [LIVE]</span>
                     <span>FPS: 8.2 | LATENCY: 115ms</span>
@@ -282,7 +290,7 @@ export default function LiveJunction() {
                     </div>
                   ))}
 
-                  <div className="pre-recorded-note">Pre-recorded footage placeholder (8 FPS)</div>
+                  <div className="pre-recorded-note">Pre-recorded Feed (CAM-0{lane.lane_number})</div>
                 </div>
 
                 <div className="lane-telemetry-row">
