@@ -23,16 +23,20 @@ INSERT INTO detections (lane_id, vehicle_class, confidence_score, bbox_x, bbox_y
 (2, 'auto-rickshaw', 0.91, 0.380, 0.450, 0.055, 0.095, CURRENT_TIMESTAMP),
 (2, 'bike', 0.89, 0.280, 0.650, 0.040, 0.090, CURRENT_TIMESTAMP),
 
--- Lane 3: Flyover slope (real red transit bus and cars)
+-- Lane 3: Flyover slope (real red transit bus, cars, and pedestrians)
 (3, 'bus', 0.96, 0.209, 0.610, 0.214, 0.381, CURRENT_TIMESTAMP),
 (3, 'car', 0.91, 0.483, 0.320, 0.063, 0.147, CURRENT_TIMESTAMP),
 (3, 'car', 0.89, 0.445, 0.246, 0.059, 0.116, CURRENT_TIMESTAMP),
+(3, 'pedestrian', 0.85, 0.721, 0.437, 0.026, 0.134, CURRENT_TIMESTAMP),
+(3, 'pedestrian', 0.85, 0.742, 0.500, 0.028, 0.123, CURRENT_TIMESTAMP),
 
--- Lane 4: Ground level street (Black Mercedes, auto-rickshaws, scooters)
+-- Lane 4: Ground level street (Black Mercedes, auto-rickshaws, pedestrians)
 (4, 'car', 0.96, 0.488, 0.410, 0.191, 0.248, CURRENT_TIMESTAMP),
 (4, 'auto-rickshaw', 0.94, 0.000, 0.430, 0.249, 0.357, CURRENT_TIMESTAMP),
 (4, 'auto-rickshaw', 0.92, 0.220, 0.378, 0.212, 0.275, CURRENT_TIMESTAMP),
-(4, 'auto-rickshaw', 0.90, 0.656, 0.362, 0.070, 0.176, CURRENT_TIMESTAMP);
+(4, 'auto-rickshaw', 0.90, 0.656, 0.362, 0.070, 0.176, CURRENT_TIMESTAMP),
+(4, 'pedestrian', 0.89, 0.734, 0.462, 0.127, 0.534, CURRENT_TIMESTAMP),
+(4, 'pedestrian', 0.90, 0.685, 0.387, 0.082, 0.410, CURRENT_TIMESTAMP);
 
 SELECT setval('detections_id_seq', (SELECT MAX(id) FROM detections));
 

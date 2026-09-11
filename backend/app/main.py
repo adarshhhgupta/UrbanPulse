@@ -70,7 +70,9 @@ def initialize_and_seed_db(max_retries: int = 15, retry_interval: float = 2.0):
             d12 = Detection(lane_id=4, vehicle_class="auto-rickshaw", confidence_score=0.94, bbox_x=0.000, bbox_y=0.430, bbox_w=0.249, bbox_h=0.357)
             d13 = Detection(lane_id=4, vehicle_class="auto-rickshaw", confidence_score=0.92, bbox_x=0.220, bbox_y=0.378, bbox_w=0.212, bbox_h=0.275)
             d14 = Detection(lane_id=4, vehicle_class="auto-rickshaw", confidence_score=0.90, bbox_x=0.656, bbox_y=0.362, bbox_w=0.070, bbox_h=0.176)
-            db.add_all([d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11, d12, d13, d14])
+            d15 = Detection(lane_id=4, vehicle_class="pedestrian", confidence_score=0.89, bbox_x=0.734, bbox_y=0.462, bbox_w=0.127, bbox_h=0.534)
+            d16 = Detection(lane_id=4, vehicle_class="pedestrian", confidence_score=0.90, bbox_x=0.685, bbox_y=0.387, bbox_w=0.082, bbox_h=0.410)
+            db.add_all([d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11, d12, d13, d14, d15, d16])
 
             # 3. Seed Violations
             v1 = Violation(lane_id=2, plate_number="KA-05-MJ-4821", confidence_score=0.948, violation_type="Red-Light Stop-Line Breach")

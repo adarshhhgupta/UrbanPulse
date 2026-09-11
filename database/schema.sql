@@ -24,7 +24,7 @@ CREATE TABLE lanes (
 CREATE TABLE detections (
     id SERIAL PRIMARY KEY,
     lane_id INTEGER NOT NULL REFERENCES lanes(id) ON DELETE CASCADE,
-    vehicle_class VARCHAR(30) NOT NULL CHECK (vehicle_class IN ('car', 'bike', 'auto-rickshaw', 'bus', 'truck', 'ambulance')),
+    vehicle_class VARCHAR(30) NOT NULL CHECK (vehicle_class IN ('car', 'bike', 'auto-rickshaw', 'bus', 'truck', 'ambulance', 'pedestrian')),
     confidence_score DOUBLE PRECISION NOT NULL,
     bbox_x DOUBLE PRECISION NOT NULL,
     bbox_y DOUBLE PRECISION NOT NULL,

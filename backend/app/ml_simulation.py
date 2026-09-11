@@ -4,6 +4,8 @@ Simulates YOLOv8 computer vision detection, PCU-based density calculation,
 frame-differencing fallback estimation, and LSTM multi-horizon queue forecasting.
 """
 
+import os
+import json
 import math
 import random
 from datetime import datetime, timedelta
@@ -15,18 +17,20 @@ from typing import List, Dict, Tuple
 FRAME_EXTRACTION_FPS = 8  # Hardware sampling budget (5–10 FPS per RTSP camera stream)
 DETECTION_CONFIDENCE_THRESHOLD = 0.65  # Trigger threshold below which fallback estimation activates
 
-# Exactly 6 domain classes fine-tuned for Indian/urban traffic environments
+# Domain classes fine-tuned for Indian/urban traffic environments
 VEHICLE_CLASSES = [
     "car",
     "bike",
     "auto-rickshaw",
     "bus",
     "truck",
-    "ambulance"
+    "ambulance",
+    "pedestrian"
 ]
 
 # Passenger Car Unit (PCU) equivalents for geometric roadway occupancy
 PCU_WEIGHTS = {
+    "pedestrian": 0.0,  # Vulnerable road user, counted separately for safety
     "bike": 0.5,
     "auto-rickshaw": 0.8,
     "car": 1.0,
@@ -48,6 +52,7 @@ def generate_detections_for_lane(
 ) -> List[Dict]:
     """
     Simulates spatial object detection output from an on-device YOLOv8s TensorRT engine.
+    """
     
     # --------------------------------------------------------------------------
     # PRODUCTION NOTE:

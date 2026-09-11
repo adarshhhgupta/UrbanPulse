@@ -4,10 +4,22 @@ export default function LiveJunction() {
   const [lanes, setLanes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [emergencyOverride, setEmergencyOverride] = useState(true);
+  const [emergencyOverride, setEmergencyOverride] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
   const [videoTracks, setVideoTracks] = useState(null);
   const [activeDetections, setActiveDetections] = useState({});
+
+  // 4-Lane Intelligent Round-Robin Cycle Sequencer
+  const [activeLane, setActiveLane] = useState(1); // 1, 2, 3, 4
+  const [phaseDuration, setPhaseDuration] = useState(5); // 5s per user request
+  const [secondsRemaining, setSecondsRemaining] = useState(5);
+  const [isCycleRunning, setIsCycleRunning] = useState(true);
+
+  // References to the 4 video elements for fine-grained play/pause control
+  const videoRefs = useRef({});
+
+  // Effective green lane: locked to 1 in emergency override, otherwise follows sequencer
+  const effectiveGreenLane = emergencyOverride ? 1 : activeLane;
 
   // Accurate initial reference detections matching the video frame 0
   const defaultAccurateLanes = [
@@ -45,13 +57,15 @@ export default function LiveJunction() {
       lane_number: 3,
       current_state: 'red',
       density_percent: 18.0,
-      queue_count: 3,
+      queue_count: 5,
       is_ambulance_detected: false,
       last_updated: new Date().toISOString(),
       detections: [
         { id: 8, vehicle_class: 'bus', confidence_score: 0.96, bbox_x: 0.209, bbox_y: 0.610, bbox_w: 0.214, bbox_h: 0.381 },
         { id: 9, vehicle_class: 'car', confidence_score: 0.91, bbox_x: 0.483, bbox_y: 0.320, bbox_w: 0.063, bbox_h: 0.147 },
-        { id: 10, vehicle_class: 'car', confidence_score: 0.89, bbox_x: 0.445, bbox_y: 0.246, bbox_w: 0.059, bbox_h: 0.116 }
+        { id: 10, vehicle_class: 'car', confidence_score: 0.89, bbox_x: 0.445, bbox_y: 0.246, bbox_w: 0.059, bbox_h: 0.116 },
+        { id: 101, vehicle_class: 'pedestrian', confidence_score: 0.85, bbox_x: 0.721, bbox_y: 0.437, bbox_w: 0.026, bbox_h: 0.134 },
+        { id: 102, vehicle_class: 'pedestrian', confidence_score: 0.85, bbox_x: 0.742, bbox_y: 0.500, bbox_w: 0.028, bbox_h: 0.123 }
       ]
     },
     {
@@ -66,7 +80,9 @@ export default function LiveJunction() {
         { id: 11, vehicle_class: 'car', confidence_score: 0.96, bbox_x: 0.488, bbox_y: 0.410, bbox_w: 0.191, bbox_h: 0.248 },
         { id: 12, vehicle_class: 'auto-rickshaw', confidence_score: 0.94, bbox_x: 0.000, bbox_y: 0.430, bbox_w: 0.249, bbox_h: 0.357 },
         { id: 13, vehicle_class: 'auto-rickshaw', confidence_score: 0.92, bbox_x: 0.220, bbox_y: 0.378, bbox_w: 0.212, bbox_h: 0.275 },
-        { id: 14, vehicle_class: 'auto-rickshaw', confidence_score: 0.90, bbox_x: 0.656, bbox_y: 0.362, bbox_w: 0.070, bbox_h: 0.176 }
+        { id: 14, vehicle_class: 'auto-rickshaw', confidence_score: 0.90, bbox_x: 0.656, bbox_y: 0.362, bbox_w: 0.070, bbox_h: 0.176 },
+        { id: 15, vehicle_class: 'pedestrian', confidence_score: 0.89, bbox_x: 0.734, bbox_y: 0.462, bbox_w: 0.127, bbox_h: 0.534 },
+        { id: 16, vehicle_class: 'pedestrian', confidence_score: 0.90, bbox_x: 0.685, bbox_y: 0.387, bbox_w: 0.082, bbox_h: 0.410 }
       ]
     }
   ];
@@ -104,6 +120,39 @@ export default function LiveJunction() {
       }));
     }
   };
+
+  // Synchronize video playback with the current active signal:
+  // Active GREEN lane plays, opposing RED lanes pause!
+  useEffect(() => {
+    [1, 2, 3, 4].forEach((laneNum) => {
+      const vid = videoRefs.current[laneNum];
+      if (!vid) return;
+
+      if (laneNum === effectiveGreenLane) {
+        vid.play().catch(() => {});
+      } else {
+        vid.pause();
+      }
+    });
+  }, [effectiveGreenLane, isCycleRunning]);
+
+  // Automated 1-second countdown sequencer:
+  // After `phaseDuration` seconds (default 5s), passes green to the next lane (1 -> 2 -> 3 -> 4 -> 1)
+  useEffect(() => {
+    if (emergencyOverride || !isCycleRunning) return;
+
+    const timer = setInterval(() => {
+      setSecondsRemaining((prev) => {
+        if (prev <= 1) {
+          setActiveLane((curr) => (curr % 4) + 1);
+          return phaseDuration;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [emergencyOverride, isCycleRunning, phaseDuration]);
 
   // REST & WebSocket telemetry fetch
   useEffect(() => {
@@ -166,7 +215,29 @@ export default function LiveJunction() {
   }, []);
 
   const toggleScenario = () => {
-    setEmergencyOverride(!emergencyOverride);
+    if (!emergencyOverride) {
+      setEmergencyOverride(true);
+      setActiveLane(1);
+    } else {
+      setEmergencyOverride(false);
+      setActiveLane(1);
+      setSecondsRemaining(phaseDuration);
+    }
+  };
+
+  const selectLane = (laneNum) => {
+    setEmergencyOverride(false);
+    setActiveLane(laneNum);
+    setSecondsRemaining(phaseDuration);
+  };
+
+  const toggleCycle = () => {
+    setIsCycleRunning((prev) => !prev);
+  };
+
+  const handleDurationChange = (sec) => {
+    setPhaseDuration(sec);
+    setSecondsRemaining(sec);
   };
 
   const getBBoxClass = (cls) => {
@@ -183,6 +254,9 @@ export default function LiveJunction() {
       case 'bike':
       case 'motorcycle':
         return 'bbox-bike';
+      case 'pedestrian':
+      case 'person':
+        return 'bbox-pedestrian';
       default:
         return 'bbox-car';
     }
@@ -203,20 +277,62 @@ export default function LiveJunction() {
             </h2>
             <p className="section-desc">
               Synchronized quad-camera perception feeds with real-time YOLOv8 bounding box annotations, queue estimation,
-              and illuminated 3-lamp signal heads driven by WebSocket telemetry.
+              and illuminated 3-lamp signal heads driven by automated round-robin sequencing and WebSocket telemetry.
             </p>
           </div>
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+
+          {/* Interactive Junction Controls */}
+          <div className="cycle-toolbar">
             <span className="font-mono" style={{ fontSize: '0.75rem', color: wsConnected ? 'var(--signal-green)' : 'var(--signal-yellow)' }}>
               {wsConnected ? '● WS Live Stream' : '○ Standby Snapshot'}
             </span>
-            <button className="sim-btn" onClick={toggleScenario}>
+
+            {/* Auto-Cycle Play / Pause Toggle */}
+            <button
+              className="sim-btn"
+              onClick={toggleCycle}
+              title={isCycleRunning ? 'Pause signal sequencing' : 'Resume signal sequencing'}
+              style={{ borderColor: isCycleRunning ? 'var(--signal-green)' : 'var(--signal-yellow)' }}
+            >
+              {isCycleRunning ? '⏸ Pause Cycle' : '▶ Resume Cycle'}
+            </button>
+
+            {/* Phase Duration Selector */}
+            <div className="phase-duration-selector font-mono" title="Green phase duration per lane">
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>TIME:</span>
+              {[5, 8, 10].map((sec) => (
+                <button
+                  key={sec}
+                  className={`timer-chip ${phaseDuration === sec ? 'active' : ''}`}
+                  onClick={() => handleDurationChange(sec)}
+                >
+                  {sec}s
+                </button>
+              ))}
+            </div>
+
+            {/* Quick Lane Jump */}
+            <div className="lane-quick-selectors font-mono" title="Force green signal on a specific lane">
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginRight: 2 }}>FORCE:</span>
+              {[1, 2, 3, 4].map((num) => (
+                <button
+                  key={num}
+                  className={`lane-selector-btn ${effectiveGreenLane === num ? 'active' : ''}`}
+                  onClick={() => selectLane(num)}
+                >
+                  L{num}
+                </button>
+              ))}
+            </div>
+
+            {/* Emergency Ambulance Override */}
+            <button className={`sim-btn ${emergencyOverride ? 'sim-btn-active' : ''}`} onClick={toggleScenario}>
               <svg className="icon icon-sm text-critical" viewBox="0 0 24 24">
                 <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2" />
                 <line x1="12" y1="8" x2="12" y2="12" />
                 <line x1="12" y1="16" x2="12.01" y2="16" />
               </svg>
-              {emergencyOverride ? 'Simulate Phase Resumption' : 'Trigger Ambulance Override (Lane 1)'}
+              {emergencyOverride ? 'Simulate Phase Resumption' : '🚨 Trigger Ambulance Override (L1)'}
             </button>
           </div>
         </div>
@@ -242,7 +358,7 @@ export default function LiveJunction() {
             <div>
               <div className="emergency-title">EMERGENCY OVERRIDE ENGAGED — AMBULANCE DETECTED IN LANE 1</div>
               <div className="emergency-sub">
-                Corridor Clearing: Next downstream node <strong style={{ color: '#fff' }}>Junction 7</strong> notified via MQTT — pre-emptive green corridor scheduled.
+                Corridor Clearing: Opposing lanes locked to <strong style={{ color: '#fff' }}>RED</strong>. Lane 1 video actively streaming. Next downstream node Junction 7 notified via MQTT.
               </div>
             </div>
           </div>
@@ -257,16 +373,9 @@ export default function LiveJunction() {
       ) : (
         <div className="lanes-grid">
           {lanes.map((lane) => {
-            let isGreen = lane.current_state === 'green';
-            let isRed = lane.current_state === 'red';
-            let isYellow = lane.current_state === 'yellow';
-
-            if (!emergencyOverride) {
-              if (lane.lane_number === 1) { isGreen = false; isRed = true; }
-              if (lane.lane_number === 2) { isGreen = true; isRed = false; }
-              if (lane.lane_number === 3) { isGreen = false; isRed = true; }
-              if (lane.lane_number === 4) { isYellow = true; isRed = false; }
-            }
+            const isGreen = lane.lane_number === effectiveGreenLane;
+            const isRed = !isGreen;
+            const isYellow = false;
 
             const laneTitles = {
               1: 'Lane 1 (Northbound)',
@@ -281,10 +390,28 @@ export default function LiveJunction() {
               ? laneTracked
               : (lane.detections && lane.detections.length > 0 ? lane.detections : (defaultAccurateLanes[lane.lane_number - 1]?.detections || []));
 
+            const vehicleCount = currentDetections.filter(d => d.vehicle_class !== 'pedestrian' && d.vehicle_class !== 'person').length || lane.queue_count;
+            const pedCount = currentDetections.filter(d => d.vehicle_class === 'pedestrian' || d.vehicle_class === 'person').length;
+
+            let badgeText = '';
+            if (emergencyOverride) {
+              if (lane.lane_number === 1) {
+                badgeText = 'AMBULANCE OVERRIDE — ACTIVE GREEN';
+              } else {
+                badgeText = 'EMERGENCY HOLD — FORCED RED (PAUSED)';
+              }
+            } else {
+              if (isGreen) {
+                badgeText = `ACTIVE GREEN (${secondsRemaining}s REMAINING)`;
+              } else {
+                badgeText = 'HOLDING RED — QUEUED WAITING (PAUSED)';
+              }
+            }
+
             return (
               <div
                 key={lane.id}
-                className={`lane-panel ${emergencyOverride && lane.is_ambulance_detected ? 'critical-active' : ''}`}
+                className={`lane-panel ${emergencyOverride && lane.is_ambulance_detected ? 'critical-active' : ''} ${isGreen ? 'active-green-phase' : ''}`}
               >
                 <div className="lane-header">
                   <span className="lane-name">
@@ -294,19 +421,14 @@ export default function LiveJunction() {
                         width: 8,
                         height: 8,
                         borderRadius: '50%',
-                        backgroundColor: isGreen ? 'var(--signal-green)' : isYellow ? 'var(--signal-yellow)' : 'var(--signal-red)'
+                        backgroundColor: isGreen ? 'var(--signal-green)' : 'var(--signal-red)',
+                        boxShadow: isGreen ? '0 0 8px var(--signal-green)' : '0 0 6px var(--signal-red)'
                       }}
                     />
                     {laneTitles[lane.lane_number] || `Lane ${lane.lane_number}`}
                   </span>
-                  <span className={`lane-state-badge ${isGreen ? 'badge-override-green' : isYellow ? 'badge-preempt-standby' : 'badge-override-hold'}`}>
-                    {lane.lane_number === 1 && emergencyOverride && 'AMBULANCE OVERRIDE — ACTIVE GREEN'}
-                    {lane.lane_number === 1 && !emergencyOverride && 'CLEARED — PHASE TERMINATED'}
-                    {lane.lane_number === 2 && emergencyOverride && 'HIGH DENSITY (82%) — FORCED RED'}
-                    {lane.lane_number === 2 && !emergencyOverride && 'HIGH DENSITY (82%) — ACTIVE GREEN'}
-                    {lane.lane_number === 3 && 'LOW DENSITY (18%) — RED'}
-                    {lane.lane_number === 4 && emergencyOverride && 'PREDICTIVE PRE-EMPTION QUEUED'}
-                    {lane.lane_number === 4 && !emergencyOverride && 'PRE-EMPTIVE GREEN IMMINENT'}
+                  <span className={`lane-state-badge ${isGreen ? 'badge-override-green' : 'badge-override-hold'}`}>
+                    {badgeText}
                   </span>
                 </div>
 
@@ -314,19 +436,40 @@ export default function LiveJunction() {
                   <div className="road-surface" />
                   <div className="road-lanemark" />
                   <video
+                    ref={(el) => {
+                      if (el) {
+                        videoRefs.current[lane.lane_number] = el;
+                        if (lane.lane_number === effectiveGreenLane) {
+                          el.play().catch(() => {});
+                        } else {
+                          el.pause();
+                        }
+                      }
+                    }}
                     src={`/videos/lane${lane.lane_number}.mp4`}
-                    autoPlay
                     loop
                     muted
                     playsInline
                     onTimeUpdate={(e) => handleTimeUpdate(lane.lane_number, e)}
                     className="lane-video-element"
                   />
-                  <div className="camera-hud-overlay">
-                    <span className="rec-indicator"><span className="rec-dot" /> CAM-0{lane.lane_number} [LIVE]</span>
-                    <span>FPS: 8.2 | LATENCY: 115ms</span>
+
+                  {/* Flow Status Pill Badge */}
+                  <div className={`lane-flow-pill ${isGreen ? 'pill-green' : 'pill-red'}`}>
+                    <span className={`flow-dot ${isGreen ? 'green' : 'red'}`} />
+                    <span>{isGreen ? `GREEN FLOW (${secondsRemaining}s)` : 'RED SIGNAL • PAUSED'}</span>
                   </div>
 
+                  {/* Camera HUD Overlay */}
+                  <div className="camera-hud-overlay">
+                    <span className="rec-indicator">
+                      <span className={isGreen ? "rec-dot" : "rec-dot paused"} />
+                      CAM-0{lane.lane_number} [{isGreen ? 'FLOWING' : 'PAUSED'}]
+                    </span>
+                    <span>FPS: {isGreen ? '8.2' : '0.0'} | LATENCY: {isGreen ? '115ms' : '--'}</span>
+                  </div>
+
+                  {/* YOLOv8 Detection Bounding Boxes */}
                   {currentDetections.map((d, i) => (
                     <div
                       key={d.id || i}
@@ -357,14 +500,19 @@ export default function LiveJunction() {
                     <div className="metrics-data-line">
                       <span className="text-muted">Queue Status:</span>
                       <span className="font-mono" style={{ fontWeight: 700, color: '#fff' }}>
-                        Vehicles in queue: {currentDetections.length || lane.queue_count}
+                        {vehicleCount} Vehicles
+                        {pedCount > 0 && (
+                          <span style={{ color: '#10b981', marginLeft: '0.4rem', fontWeight: 600 }}>
+                            • {pedCount} Pedestrians
+                          </span>
+                        )}
                       </span>
                     </div>
                     <div className="density-bar-wrapper">
                       <div className="metrics-data-line">
                         <span className="text-muted">Density Index:</span>
-                        <span className="font-mono" style={{ color: lane.density_percent > 70 ? 'var(--signal-red)' : lane.density_percent > 40 ? 'var(--signal-yellow)' : 'var(--signal-green)' }}>
-                          {lane.density_percent}% ({lane.density_percent > 70 ? 'High' : lane.density_percent > 40 ? 'Moderate' : 'Free Flow'})
+                        <span className="font-mono" style={{ color: isGreen ? 'var(--signal-green)' : (lane.density_percent > 70 ? 'var(--signal-red)' : 'var(--signal-yellow)') }}>
+                          {lane.density_percent}% ({isGreen ? 'Active Discharge' : (lane.density_percent > 70 ? 'High Queue' : 'Moderate Queue')})
                         </span>
                       </div>
                       <div className="density-bar-bg">
@@ -378,9 +526,9 @@ export default function LiveJunction() {
                 </div>
 
                 <div className="lane-footer-meta">
-                  <span>LAST FRAME: <span className="font-mono text-muted">{new Date(lane.last_updated).toLocaleTimeString()}</span></span>
+                  <span>SIGNAL STATE: <span className="font-mono" style={{ color: isGreen ? 'var(--signal-green)' : 'var(--signal-red)', fontWeight: 700 }}>{isGreen ? 'GREEN [FLOWING]' : 'RED [WAITING]'}</span></span>
                   <span className="font-mono text-yellow" style={{ fontSize: '0.7rem' }}>
-                    {lane.lane_number === 4 ? 'LSTM: +23% in 90s' : lane.lane_number === 1 ? 'PRIORITY 1 OVERRIDE' : `PCU Cap: ${lane.density_percent}%`}
+                    {lane.lane_number === 4 ? 'LSTM: +23% in 90s' : lane.lane_number === 1 && emergencyOverride ? 'PRIORITY 1 OVERRIDE' : `PCU Cap: ${lane.density_percent}%`}
                   </span>
                 </div>
               </div>

@@ -119,14 +119,20 @@ def generate_accurate_detections():
                     })
 
             elif lane_id == 2:
-                # Aerial view: roadway is in central corridor (x: 0.05 to 0.75, y: 0.35 to 0.95)
-                # Ignore sidewalk / boundary wall on the right (x > 0.75, y < 0.60)
+                # Aerial view: roadway corridor & sidewalks
                 for r in raw_boxes:
-                    # Filter out wall on the far right
-                    if r["x"] > 0.72 and r["y"] < 0.65:
+                    # Filter out background wall on far right
+                    if r["x"] > 0.75 and r["y"] < 0.60:
                         continue
-                    # Filter out pedestrians
-                    if r["class"] == "person":
+                    if r["class"] == "person" and r["conf"] >= 0.40:
+                        refined_dets.append({
+                            "vehicle_class": "pedestrian",
+                            "confidence_score": round(max(0.85, r["conf"]), 2),
+                            "bbox_x": round(r["x"], 3),
+                            "bbox_y": round(r["y"], 3),
+                            "bbox_w": round(r["w"], 3),
+                            "bbox_h": round(r["h"], 3)
+                        })
                         continue
 
                     v_class = "car"
@@ -138,7 +144,6 @@ def generate_accurate_detections():
                     elif r["class"] in ["motorcycle", "bicycle"]:
                         v_class = "bike"
                     elif r["class"] == "car":
-                        # Detect auto-rickshaw: compact yellow/black three wheelers in middle lanes
                         if 0.15 < r["x"] < 0.65 and 0.40 < r["y"] < 0.85 and 0.03 < r["w"] < 0.08 and 0.06 < r["h"] < 0.15:
                             v_class = "auto-rickshaw"
                         else:
@@ -154,12 +159,20 @@ def generate_accurate_detections():
                     })
 
             elif lane_id == 3:
-                # Flyover ramp / downhill slope: red transit bus descending on left-center lane
+                # Flyover ramp / downhill slope: red transit bus and sidewalk pedestrians
                 for r in raw_boxes:
-                    # Filter out people on sidewalk
-                    if r["class"] == "person":
+                    if r["class"] == "person" and r["conf"] >= 0.45:
+                        refined_dets.append({
+                            "vehicle_class": "pedestrian",
+                            "confidence_score": round(max(0.85, r["conf"]), 2),
+                            "bbox_x": round(r["x"], 3),
+                            "bbox_y": round(r["y"], 3),
+                            "bbox_w": round(r["w"], 3),
+                            "bbox_h": round(r["h"], 3)
+                        })
                         continue
-                    # Filter out background objects on the sidewalk
+
+                    # Filter out background objects on the far sidewalk
                     if r["x"] > 0.65:
                         continue
 
@@ -180,15 +193,26 @@ def generate_accurate_detections():
 
             elif lane_id == 4:
                 # Ground level frontal view:
-                # - Black Mercedes in front (x ~ 0.35-0.65, y ~ 0.45-0.85) -> "car"
-                # - Auto-rickshaws on left and right behind Mercedes -> "auto-rickshaw"
-                # - Motorcycles / two wheelers -> "bike"
-                # - Pedestrians ignored from vehicle bounding boxes
+                # - Black Mercedes in front -> "car"
+                # - Auto-rickshaws -> "auto-rickshaw"
+                # - Pedestrians walking on right sidewalk & crossing -> "pedestrian"
+                # - Two wheelers -> "bike"
                 for r in raw_boxes:
-                    if r["class"] == "person" or r["class"] == "handbag":
-                        continue  # Exclude pedestrians from vehicle boxes
+                    if r["class"] == "handbag":
+                        continue
                     if r["y"] < 0.25:
                         continue  # Ignore sky / distant buildings
+
+                    if r["class"] == "person" and r["conf"] >= 0.45:
+                        refined_dets.append({
+                            "vehicle_class": "pedestrian",
+                            "confidence_score": round(max(0.88, r["conf"]), 2),
+                            "bbox_x": round(r["x"], 3),
+                            "bbox_y": round(r["y"], 3),
+                            "bbox_w": round(r["w"], 3),
+                            "bbox_h": round(r["h"], 3)
+                        })
+                        continue
 
                     v_class = "car"
                     # Black Mercedes: prominent wide front sedan

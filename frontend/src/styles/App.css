@@ -865,6 +865,12 @@ section {
 }
 .bbox-bus .bbox-tag { background-color: #7c3aed; color: #ffffff; }
 
+.bbox-pedestrian {
+  border-color: #10b981;
+  background-color: rgba(16, 185, 129, 0.20);
+}
+.bbox-pedestrian .bbox-tag { background-color: #059669; color: #ffffff; }
+
 /* 3-Lamp Signal Head */
 .lane-telemetry-row {
   padding: 1rem 1.25rem;
@@ -971,6 +977,158 @@ section {
   align-items: center;
   gap: 0.4rem;
   transition: all 0.2s ease;
+}
+
+.sim-btn:hover {
+  border-color: #3b82f6;
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+.sim-btn-active {
+  background-color: rgba(244, 63, 94, 0.2) !important;
+  border-color: var(--accent-critical) !important;
+  color: #fff !important;
+  box-shadow: 0 0 12px rgba(244, 63, 94, 0.35);
+}
+
+/* 4-Lane Cycle Controls & Status */
+.cycle-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.phase-duration-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background-color: var(--bg-card);
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+
+.timer-chip {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.timer-chip:hover {
+  color: #fff;
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.timer-chip.active {
+  background-color: rgba(34, 197, 94, 0.2);
+  border-color: var(--signal-green);
+  color: var(--signal-green);
+  font-weight: 700;
+}
+
+.lane-quick-selectors {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+  background-color: var(--bg-card);
+  padding: 0.25rem 0.45rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+
+.lane-selector-btn {
+  background-color: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.lane-selector-btn:hover {
+  color: #fff;
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.lane-selector-btn.active {
+  background-color: rgba(34, 197, 94, 0.2);
+  border-color: var(--signal-green);
+  color: var(--signal-green);
+}
+
+/* Active green lane glowing border */
+.lane-panel.active-green-phase {
+  border: 1px solid rgba(34, 197, 94, 0.85);
+  box-shadow: 0 0 24px rgba(34, 197, 94, 0.25);
+  transition: all 0.3s ease;
+}
+
+/* Flow pill indicators on video viewport */
+.lane-flow-pill {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 20px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+
+.lane-flow-pill.pill-green {
+  background-color: rgba(6, 78, 59, 0.88);
+  border: 1px solid #10b981;
+  color: #ecfdf5;
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.4);
+}
+
+.lane-flow-pill.pill-red {
+  background-color: rgba(127, 29, 29, 0.88);
+  border: 1px solid #ef4444;
+  color: #fef2f2;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.35);
+}
+
+.flow-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.flow-dot.green {
+  background-color: #34d399;
+  box-shadow: 0 0 8px #34d399;
+  animation: dot-pulse 1.2s infinite ease-in-out;
+}
+
+.flow-dot.red {
+  background-color: #f87171;
+}
+
+@keyframes dot-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: 0.6; }
+}
+
+.rec-dot.paused {
+  background-color: #ef4444;
+  box-shadow: none;
+  animation: none;
 }
 
 .sim-btn:hover {
@@ -1506,3 +1664,88 @@ footer {
     align-items: flex-start;
   }
 }
+
+/* Prediction Engine Scenario KPI Summary */
+.kpi-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.kpi-summary-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.kpi-summary-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+}
+
+.kpi-summary-val {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #fff;
+  font-family: var(--font-mono);
+}
+
+.kpi-summary-sub {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+/* Dynamic highlight for Decision Engine priority rows */
+.data-table tr.p1-active td {
+  background-color: rgba(244, 63, 94, 0.12) !important;
+  border-top: 1px solid rgba(244, 63, 94, 0.5);
+  border-bottom: 1px solid rgba(244, 63, 94, 0.5);
+}
+
+.data-table tr.p2-active td {
+  background-color: rgba(245, 158, 11, 0.12) !important;
+  border-top: 1px solid rgba(245, 158, 11, 0.5);
+  border-bottom: 1px solid rgba(245, 158, 11, 0.5);
+}
+
+.data-table tr.p3-active td {
+  background-color: rgba(59, 130, 246, 0.12) !important;
+  border-top: 1px solid rgba(59, 130, 246, 0.5);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.5);
+}
+
+.data-table tr.p4-active td {
+  background-color: rgba(16, 185, 129, 0.12) !important;
+  border-top: 1px solid rgba(16, 185, 129, 0.5);
+  border-bottom: 1px solid rgba(16, 185, 129, 0.5);
+}
+
+.trigger-badge {
+  display: inline-block;
+  margin-top: 0.35rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 3px;
+  font-size: 0.68rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.trigger-badge.p1 { background-color: #f43f5e; color: #fff; }
+.trigger-badge.p2 { background-color: #f59e0b; color: #000; }
+.trigger-badge.p3 { background-color: #3b82f6; color: #fff; }
+.trigger-badge.p4 { background-color: #10b981; color: #000; }
+
+@media (max-width: 900px) {
+  .kpi-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
