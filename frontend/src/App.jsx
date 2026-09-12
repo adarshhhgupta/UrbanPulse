@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Sidebar from './components/Sidebar';
 import Overview from './components/Overview';
 import LiveJunction from './components/LiveJunction';
+import LaneAnalytics from './components/LaneAnalytics';
 import DetectionModels from './components/DetectionModels';
 import PredictionEngine from './components/PredictionEngine';
 import Modules from './components/Modules';
@@ -43,6 +44,7 @@ export default function App() {
         <div className="content-container">
           <Overview />
           <LiveJunction />
+          <LaneAnalytics />
           <DetectionModels />
           <PredictionEngine />
           <Modules />

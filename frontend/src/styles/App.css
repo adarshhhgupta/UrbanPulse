@@ -1749,3 +1749,223 @@ footer {
   }
 }
 
+/* ==========================================================================
+   Lane Vehicle Analytics & Donut Graphs Styles
+   ========================================================================== */
+.lanes-donut-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+.lane-donut-card {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+}
+
+.lane-donut-card:hover {
+  border-color: var(--border-accent);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.lane-donut-header {
+  padding: 0.85rem 1.25rem;
+  background-color: var(--bg-panel-header);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.lane-donut-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.lane-donut-sub {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  margin-top: 0.15rem;
+}
+
+.lane-donut-body {
+  padding: 1.5rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1.75rem;
+  flex: 1;
+}
+
+.donut-chart-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.donut-center-content {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.donut-center-val {
+  font-size: 1.6rem;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  color: #ffffff;
+  line-height: 1;
+}
+
+.donut-center-lbl {
+  font-size: 0.65rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  margin-top: 0.2rem;
+}
+
+.donut-legend-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.legend-section-title {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  margin-bottom: 0.2rem;
+}
+
+.donut-legend-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.legend-badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid;
+  font-size: 0.72rem;
+}
+
+.legend-color-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.lane-pcu-meter {
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.lane-donut-footer {
+  padding: 0.65rem 1.25rem;
+  background-color: var(--bg-panel-header);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Deep Dive Mode */
+.lane-deep-dive-panel {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.deep-dive-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr;
+  gap: 1.5rem;
+}
+
+.deep-dive-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.vehicle-bars-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.vehicle-bar-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.vehicle-bar-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.vehicle-bar-track {
+  height: 8px;
+  background-color: #0b0e14;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+
+.vehicle-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.5s ease-out;
+}
+
+.pcu-calc-banner {
+  margin-top: 1.25rem;
+  padding: 0.75rem;
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px dashed var(--border-accent);
+  border-radius: var(--radius-sm);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  color: #f1f5f9;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+@media (max-width: 1024px) {
+  .lanes-donut-grid {
+    grid-template-columns: 1fr;
+  }
+  .deep-dive-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+

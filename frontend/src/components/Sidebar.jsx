@@ -18,6 +18,13 @@ export default function Sidebar({ isOpen, onToggle }) {
         <circle cx="12" cy="12" r="3" />
       </svg>
     )},
+    { id: 'lane-analytics', label: 'Lane Analytics', icon: (
+      <svg className="icon" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 2a10 10 0 0 1 10 10" />
+        <circle cx="12" cy="12" r="4" />
+      </svg>
+    )},
     { id: 'detection-models', label: 'Detection Models', icon: (
       <svg className="icon" viewBox="0 0 24 24">
         <circle cx="12" cy="12" r="10" />
