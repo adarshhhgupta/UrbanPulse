@@ -46,9 +46,9 @@ function DonutChart({ items, size = 180, strokeWidth = 22, centerValue, centerLa
               strokeLinecap="round"
               transform={`rotate(-90 ${center} ${center})`}
               style={{
-                transition: 'all 0.5s ease-out',
+                transition: 'all 0.4s ease-out',
                 cursor: 'pointer',
-                filter: `drop-shadow(0 0 4px ${item.color}66)`
+                filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4))'
               }}
             >
               <title>{`${item.name}: ${item.count} (${(slicePercent * 100).toFixed(1)}%)`}</title>

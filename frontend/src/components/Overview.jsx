@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-export default function Overview() {
+export default function Overview({ onNavigate }) {
   const [timeStr, setTimeStr] = useState('');
   const [dateStr, setDateStr] = useState('');
 
@@ -24,20 +24,24 @@ export default function Overview() {
     return () => clearInterval(interval);
   }, []);
 
+  const handleCardClick = (page) => {
+    if (onNavigate) onNavigate(page);
+  };
+
   return (
     <section id="overview">
       <div className="hero-banner">
         <div className="hero-top-bar">
           <div className="hero-title-group">
-            <div className="section-tag">Major Academic Engineering Project Deliverable</div>
+            <div className="section-tag">Academic Engineering Deliverable & Telemetry Dashboard</div>
             <h1>UrbanPulse</h1>
             <div className="hero-subtitle">
-              AI-powered 4-lane junction control with ambulance priority and predictive signal timing
+              AI-powered 4-lane junction control with emergency preemption and predictive signal timing
             </div>
           </div>
           <div className="telemetry-clock-card">
             <div className="clock-time font-mono">{timeStr || '16:42:08'}</div>
-            <div className="clock-date font-mono">{dateStr || '2026-09-11 | UTC+05:30'}</div>
+            <div className="clock-date font-mono">{dateStr || '2026-09-12 | UTC+05:30'}</div>
           </div>
         </div>
 
@@ -46,35 +50,59 @@ export default function Overview() {
         </div>
 
         <div className="kpi-grid">
-          <div className="kpi-card">
+          <div
+            className="kpi-card clickable-kpi"
+            onClick={() => handleCardClick('live-junction')}
+            title="Open Live Junction Control Room"
+          >
             <span className="kpi-label">Lanes Monitored</span>
             <span className="kpi-value font-mono">4</span>
-            <span className="kpi-meta">Quad-camera RTSP stream</span>
+            <span className="kpi-meta">Quad-camera RTSP stream &rarr;</span>
           </div>
-          <div className="kpi-card">
+          <div
+            className="kpi-card clickable-kpi"
+            onClick={() => handleCardClick('detection-models')}
+            title="Inspect YOLOv8 Detection Models"
+          >
             <span className="kpi-label">Detection Model</span>
             <span className="kpi-value font-mono" style={{ fontSize: '1.5rem', color: '#93c5fd' }}>YOLOv8s</span>
-            <span className="kpi-meta">mAP@0.5: 91.3% | 42 FPS</span>
+            <span className="kpi-meta">mAP@0.5: 91.3% | 42 FPS &rarr;</span>
           </div>
-          <div className="kpi-card">
+          <div
+            className="kpi-card clickable-kpi"
+            onClick={() => handleCardClick('prediction-engine')}
+            title="Open LSTM Predictive Engine"
+          >
             <span className="kpi-label">Prediction Model</span>
             <span className="kpi-value font-mono" style={{ fontSize: '1.5rem', color: '#fde047' }}>LSTM</span>
-            <span className="kpi-meta">Seq2Seq 10-min horizon</span>
+            <span className="kpi-meta">Seq2Seq 10-min horizon &rarr;</span>
           </div>
-          <div className="kpi-card">
+          <div
+            className="kpi-card clickable-kpi"
+            onClick={() => handleCardClick('evaluation')}
+            title="View Simulation Evaluation"
+          >
             <span className="kpi-label">Avg. Wait Reduction</span>
             <span className="kpi-value font-mono text-green">27.4%</span>
-            <span className="kpi-meta">vs. Fixed 60s Cycle (SUMO)</span>
+            <span className="kpi-meta">vs. Fixed 60s Cycle (SUMO) &rarr;</span>
           </div>
-          <div className="kpi-card">
-            <span className="kpi-label">Ambulance Clear Time</span>
-            <span className="kpi-value font-mono text-critical">8.2s</span>
-            <span className="kpi-meta">Pre-emption delay to green</span>
+          <div
+            className="kpi-card clickable-kpi"
+            onClick={() => handleCardClick('lane-analytics')}
+            title="Open Lane Vehicle Analytics"
+          >
+            <span className="kpi-label">Active Detected Fleet</span>
+            <span className="kpi-value font-mono text-blue">75</span>
+            <span className="kpi-meta">57 Vehicles • 18 VRUs &rarr;</span>
           </div>
-          <div className="kpi-card">
+          <div
+            className="kpi-card clickable-kpi"
+            onClick={() => handleCardClick('modules')}
+            title="Inspect Algorithmic Modules"
+          >
             <span className="kpi-label">System Uptime</span>
             <span className="kpi-value font-mono text-green">99.6%</span>
-            <span className="kpi-meta">Edge watchdog verified</span>
+            <span className="kpi-meta">Edge watchdog verified &rarr;</span>
           </div>
         </div>
       </div>
