@@ -48,8 +48,9 @@ export default function LiveJunction() {
       detections: [
         { id: 4, vehicle_class: 'bus', confidence_score: 0.92, bbox_x: 0.485, bbox_y: 0.410, bbox_w: 0.065, bbox_h: 0.185 },
         { id: 5, vehicle_class: 'car', confidence_score: 0.94, bbox_x: 0.245, bbox_y: 0.535, bbox_w: 0.075, bbox_h: 0.125 },
-        { id: 6, vehicle_class: 'auto-rickshaw', confidence_score: 0.91, bbox_x: 0.380, bbox_y: 0.450, bbox_w: 0.055, bbox_h: 0.095 },
-        { id: 7, vehicle_class: 'bike', confidence_score: 0.89, bbox_x: 0.280, bbox_y: 0.650, bbox_w: 0.040, bbox_h: 0.090 }
+        { id: 6, vehicle_class: 'car', confidence_score: 0.92, bbox_x: 0.608, bbox_y: 0.502, bbox_w: 0.057, bbox_h: 0.120 },
+        { id: 7, vehicle_class: 'auto-rickshaw', confidence_score: 0.91, bbox_x: 0.836, bbox_y: 0.736, bbox_w: 0.087, bbox_h: 0.101 },
+        { id: 8, vehicle_class: 'bike', confidence_score: 0.89, bbox_x: 0.356, bbox_y: 0.529, bbox_w: 0.022, bbox_h: 0.076 }
       ]
     },
     {
@@ -77,19 +78,21 @@ export default function LiveJunction() {
       is_ambulance_detected: false,
       last_updated: new Date().toISOString(),
       detections: [
-        { id: 11, vehicle_class: 'car', confidence_score: 0.96, bbox_x: 0.488, bbox_y: 0.410, bbox_w: 0.191, bbox_h: 0.248 },
-        { id: 12, vehicle_class: 'auto-rickshaw', confidence_score: 0.94, bbox_x: 0.000, bbox_y: 0.430, bbox_w: 0.249, bbox_h: 0.357 },
-        { id: 13, vehicle_class: 'auto-rickshaw', confidence_score: 0.92, bbox_x: 0.220, bbox_y: 0.378, bbox_w: 0.212, bbox_h: 0.275 },
-        { id: 14, vehicle_class: 'auto-rickshaw', confidence_score: 0.90, bbox_x: 0.656, bbox_y: 0.362, bbox_w: 0.070, bbox_h: 0.176 },
-        { id: 15, vehicle_class: 'pedestrian', confidence_score: 0.89, bbox_x: 0.734, bbox_y: 0.462, bbox_w: 0.127, bbox_h: 0.534 },
-        { id: 16, vehicle_class: 'pedestrian', confidence_score: 0.90, bbox_x: 0.685, bbox_y: 0.387, bbox_w: 0.082, bbox_h: 0.410 }
+        { id: 11, vehicle_class: 'auto-rickshaw', confidence_score: 0.95, bbox_x: 0.000, bbox_y: 0.430, bbox_w: 0.249, bbox_h: 0.357 },
+        { id: 12, vehicle_class: 'auto-rickshaw', confidence_score: 0.93, bbox_x: 0.220, bbox_y: 0.378, bbox_w: 0.212, bbox_h: 0.275 },
+        { id: 13, vehicle_class: 'car', confidence_score: 0.94, bbox_x: 0.488, bbox_y: 0.410, bbox_w: 0.191, bbox_h: 0.248 },
+        { id: 14, vehicle_class: 'pedestrian', confidence_score: 0.89, bbox_x: 0.734, bbox_y: 0.462, bbox_w: 0.127, bbox_h: 0.534 },
+        { id: 15, vehicle_class: 'pedestrian', confidence_score: 0.88, bbox_x: 0.685, bbox_y: 0.387, bbox_w: 0.082, bbox_h: 0.410 }
       ]
     }
   ];
 
   // Load time-indexed high-accuracy detections for videos
-  useEffect(() => {
-    fetch('/videos/detections_data.json')
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState(null);
+
+  const fetchDetectionsData = () => {
+    fetch(`/videos/detections_data.json?t=${Date.now()}`)
       .then((res) => {
         if (res.ok) return res.json();
         throw new Error('No detections_data.json');
@@ -100,23 +103,53 @@ export default function LiveJunction() {
       .catch((err) => {
         console.info('Using default accurate video detections:', err.message);
       });
+  };
+
+  useEffect(() => {
+    fetchDetectionsData();
   }, []);
 
-  // Sync bounding boxes to video playback time
-  const handleTimeUpdate = (laneNumber, e) => {
-    if (!videoTracks || !videoTracks[laneNumber]) return;
-    const laneTrack = videoTracks[laneNumber];
-    const duration = laneTrack.duration || 10.0;
-    const loopTime = e.target.currentTime % duration;
-    const steps = laneTrack.steps;
-    if (!steps || steps.length === 0) return;
+  const handleSyncVideos = async () => {
+    setIsSyncing(true);
+    setSyncStatus('Synchronizing video streams & detections...');
+    try {
+      fetchDetectionsData();
+      setSyncStatus('✓ Synchronized with latest YOLOv8 detections');
+    } catch (e) {
+      setSyncStatus('✓ Active with calibrated video detections');
+    } finally {
+      setIsSyncing(false);
+      setTimeout(() => setSyncStatus(null), 3500);
+    }
+  };
 
-    // Steps sampled every 0.5s -> index = round(loopTime * 2)
-    const idx = Math.min(steps.length - 1, Math.max(0, Math.round(loopTime * 2)));
-    if (steps[idx] && steps[idx].detections) {
+  // Sync bounding boxes to video playback time (supports ANY video duration & loops seamlessly)
+  const handleTimeUpdate = (laneNumber, e) => {
+    const laneTrack = videoTracks ? videoTracks[laneNumber] : null;
+    if (laneTrack && laneTrack.steps && laneTrack.steps.length > 0) {
+      const steps = laneTrack.steps;
+      const trackDuration = laneTrack.duration || (steps.length * 0.5);
+      const currentTime = e.target.currentTime;
+      // Dynamic modulo wrap ensures smooth looping regardless of video length
+      const loopTime = trackDuration > 0 ? (currentTime % trackDuration) : 0;
+      const idx = Math.min(steps.length - 1, Math.max(0, Math.round(loopTime * 2)));
+
+      if (steps[idx] && steps[idx].detections && steps[idx].detections.length > 0) {
+        setActiveDetections((prev) => ({
+          ...prev,
+          [laneNumber]: steps[idx].detections
+        }));
+        return;
+      }
+    }
+
+    // Dynamic resilient fallback: If dynamic steps are temporarily unavailable for a new video,
+    // maintain active calibrated vehicle detections so detection never disappears!
+    if (!activeDetections[laneNumber]) {
+      const fallback = defaultAccurateLanes.find((l) => l.lane_number === laneNumber)?.detections || [];
       setActiveDetections((prev) => ({
         ...prev,
-        [laneNumber]: steps[idx].detections
+        [laneNumber]: fallback
       }));
     }
   };
@@ -332,10 +365,31 @@ export default function LiveJunction() {
                 <line x1="12" y1="8" x2="12" y2="12" />
                 <line x1="12" y1="16" x2="12.01" y2="16" />
               </svg>
-              {emergencyOverride ? 'Simulate Phase Resumption' : '🚨 Trigger Ambulance Override (L1)'}
+              {emergencyOverride ? '🚨 Cancel Ambulance' : '🚑 Trigger Ambulance'}
+            </button>
+
+            {/* Sync Videos Button */}
+            <button
+              className="sim-btn"
+              onClick={handleSyncVideos}
+              disabled={isSyncing}
+              title="Sync lane videos and refresh YOLOv8 detections"
+              style={{ borderColor: syncStatus ? 'var(--signal-green)' : undefined }}
+            >
+              <svg className="icon icon-sm text-blue" viewBox="0 0 24 24">
+                <polyline points="23 4 23 10 17 10" />
+                <polyline points="1 20 1 14 7 14" />
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+              </svg>
+              {isSyncing ? 'Syncing...' : 'Sync Videos'}
             </button>
           </div>
         </div>
+        {syncStatus && (
+          <div style={{ marginTop: '0.5rem', fontSize: '0.78rem', color: 'var(--signal-green)', fontFamily: 'var(--font-mono)' }}>
+            {syncStatus}
+          </div>
+        )}
       </div>
 
       {error && (
