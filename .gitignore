@@ -41,6 +41,8 @@ urbanpulse_postgres_data/
 *.log
 .DS_Store
 Thumbs.db
+backend/*.jpg
+
 
 # IDE & Editor settings
 .vscode/

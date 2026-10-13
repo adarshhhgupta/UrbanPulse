@@ -54,6 +54,25 @@ def arbitrate_junction_state(
             ambulance_lane = lane
             break
 
+    # Calculate dynamic green time for each individual lane
+    lane_timings = {}
+    for l in lanes_data:
+        lid = l.get("id", l.get("lane_number"))
+        if l.get("is_ambulance_detected", False):
+            lane_timings[lid] = 60.0
+        else:
+            lane_timings[lid] = calculate_dynamic_green_time(l.get("queue_count", 0))
+
+    # Determine recommended priority order
+    if ambulance_lane:
+        amb_id = ambulance_lane.get("id")
+        other_lanes = [l for l in lanes_data if l.get("id") != amb_id]
+        other_lanes.sort(key=lambda x: (x.get("density_percent", 0.0), x.get("queue_count", 0)), reverse=True)
+        priority_order = [amb_id] + [l.get("id") for l in other_lanes]
+    else:
+        sorted_lanes = sorted(lanes_data, key=lambda x: (x.get("density_percent", 0.0), x.get("queue_count", 0)), reverse=True)
+        priority_order = [l.get("id") for l in sorted_lanes]
+
     # --------------------------------------------------------------------------
     # TIER 1: EMERGENCY OVERRIDE (HIGHEST PRIORITY)
     # --------------------------------------------------------------------------
@@ -75,6 +94,8 @@ def arbitrate_junction_state(
             "active_lane_id": target_id,
             "signal_states": states,
             "allocated_green_seconds": 60.0,
+            "lane_timings": lane_timings,
+            "priority_order": priority_order,
             "corridor_clearing_notified": True,
             "downstream_junction": 7,
             "action_taken": action
@@ -108,6 +129,8 @@ def arbitrate_junction_state(
             "active_lane_id": target_id,
             "signal_states": states,
             "allocated_green_seconds": allocated_green,
+            "lane_timings": lane_timings,
+            "priority_order": priority_order,
             "corridor_clearing_notified": False,
             "downstream_junction": None,
             "action_taken": action
@@ -139,6 +162,8 @@ def arbitrate_junction_state(
             "active_lane_id": target_id,
             "signal_states": states,
             "allocated_green_seconds": allocated_green,
+            "lane_timings": lane_timings,
+            "priority_order": priority_order,
             "corridor_clearing_notified": False,
             "downstream_junction": None,
             "action_taken": action
@@ -147,7 +172,7 @@ def arbitrate_junction_state(
     # --------------------------------------------------------------------------
     # TIER 3: CURRENT DENSITY-BASED ALLOCATION (STANDARD OPERATION)
     # --------------------------------------------------------------------------
-    highest_density_lane = max(lanes_data, key=lambda x: x.get("density_percent", 0.0))
+    highest_density_lane = max(lanes_data, key=lambda x: (x.get("density_percent", 0.0), x.get("queue_count", 0)))
     target_id = highest_density_lane.get("id")
     target_num = highest_density_lane.get("lane_number")
     states = {l.get("id"): ("green" if l.get("id") == target_id else "red") for l in lanes_data}
@@ -161,7 +186,10 @@ def arbitrate_junction_state(
         "active_lane_id": target_id,
         "signal_states": states,
         "allocated_green_seconds": allocated_green,
+        "lane_timings": lane_timings,
+        "priority_order": priority_order,
         "corridor_clearing_notified": False,
         "downstream_junction": None,
         "action_taken": action
     }
+

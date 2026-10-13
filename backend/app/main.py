@@ -203,11 +203,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount static videos folder for direct streaming access
+import os
+from fastapi.staticfiles import StaticFiles
+
+videos_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "videos"))
+os.makedirs(videos_dir, exist_ok=True)
+app.mount("/videos", StaticFiles(directory=videos_dir), name="videos")
+
 # Mount application routers
 app.include_router(lanes.router)
 app.include_router(violations.router)
 app.include_router(evaluation.router)
 app.include_router(websocket.router)
+
 
 
 @app.get("/")

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 // Reusable SVG Donut Chart Component
 function DonutChart({ items, size = 180, strokeWidth = 22, centerValue, centerLabel }) {
@@ -68,9 +68,19 @@ function DonutChart({ items, size = 180, strokeWidth = 22, centerValue, centerLa
 
 export default function LaneAnalytics() {
   const [selectedView, setSelectedView] = useState('all'); // 'all' | 1 | 2 | 3 | 4
+  const [dynamicTracks, setDynamicTracks] = useState(null);
 
-  // Calibrated real video detection counts per lane
-  const laneVehicleData = {
+  useEffect(() => {
+    fetch(`/videos/detections_data.json?t=${Date.now()}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) setDynamicTracks(data);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Baseline vehicle detection data
+  const baseLaneVehicleData = {
     1: {
       id: 1,
       name: 'Lane 1 (Northbound)',
@@ -157,16 +167,62 @@ export default function LaneAnalytics() {
     }
   };
 
+  // Build dynamically updated lane vehicle data if custom video detections are present
+  const laneVehicleData = { ...baseLaneVehicleData };
+  if (dynamicTracks) {
+    [1, 2, 3, 4].forEach((laneId) => {
+      const track = dynamicTracks[laneId] || dynamicTracks[String(laneId)];
+      if (track && track.vehicle_breakdown && Object.keys(track.vehicle_breakdown).length > 0) {
+        const vb = track.vehicle_breakdown;
+        const total = Object.values(vb).reduce((a, b) => a + b, 0) || track.queue_count || 1;
+        
+        laneVehicleData[laneId] = {
+          ...laneVehicleData[laneId],
+          totalVehicles: track.queue_count || total,
+          pcuLoad: (track.density_percent * 0.28).toFixed(1),
+          statusNote: track.is_ambulance_detected
+            ? '🚨 Type-C Ambulance Active'
+            : track.density_percent > 70
+            ? '⚠️ High Density Bottleneck'
+            : '🟢 Adaptive Discharge Flow',
+          statusClass: track.is_ambulance_detected
+            ? 'text-critical'
+            : track.density_percent > 70
+            ? 'text-yellow'
+            : 'text-green',
+          classes: [
+            { name: 'Car', key: 'car', count: vb.car || 0, pct: Math.round(((vb.car || 0) / total) * 100), color: '#3b82f6', pcu: 1.0 },
+            { name: 'Ambulance', key: 'ambulance', count: vb.ambulance || 0, pct: Math.round(((vb.ambulance || 0) / total) * 100), color: '#f43f5e', pcu: 1.2 },
+            { name: 'Auto-Rickshaw', key: 'auto', count: vb['auto-rickshaw'] || 0, pct: Math.round(((vb['auto-rickshaw'] || 0) / total) * 100), color: '#f59e0b', pcu: 0.8 },
+            { name: 'Bike', key: 'bike', count: vb.bike || 0, pct: Math.round(((vb.bike || 0) / total) * 100), color: '#06b6d4', pcu: 0.5 },
+            { name: 'Bus', key: 'bus', count: vb.bus || 0, pct: Math.round(((vb.bus || 0) / total) * 100), color: '#8b5cf6', pcu: 2.5 },
+            { name: 'Truck', key: 'truck', count: vb.truck || 0, pct: Math.round(((vb.truck || 0) / total) * 100), color: '#f97316', pcu: 3.0 },
+            { name: 'Pedestrian', key: 'pedestrian', count: vb.pedestrian || 0, pct: Math.round(((vb.pedestrian || 0) / total) * 100), color: '#10b981', pcu: 0.0 }
+          ]
+        };
+      }
+    });
+  }
+
   // Intersection Aggregate Totals
-  const totalJunctionDetections = 8 + 27 + 19 + 21; // 75
+  const totalJunctionDetections =
+    laneVehicleData[1].totalVehicles +
+    laneVehicleData[2].totalVehicles +
+    laneVehicleData[3].totalVehicles +
+    laneVehicleData[4].totalVehicles;
+
   const aggregateClasses = [
-    { name: 'Car', count: 33, pct: 44.0, color: '#3b82f6' },
-    { name: 'Pedestrian', count: 18, pct: 24.0, color: '#10b981' },
-    { name: 'Auto-Rickshaw', count: 17, pct: 22.7, color: '#f59e0b' },
-    { name: 'Bus', count: 4, pct: 5.3, color: '#8b5cf6' },
-    { name: 'Bike', count: 2, pct: 2.7, color: '#06b6d4' },
-    { name: 'Ambulance', count: 1, pct: 1.3, color: '#f43f5e' }
-  ];
+    { name: 'Car', count: [1, 2, 3, 4].reduce((acc, id) => acc + (laneVehicleData[id].classes.find(c => c.name === 'Car')?.count || 0), 0), color: '#3b82f6' },
+    { name: 'Auto-Rickshaw', count: [1, 2, 3, 4].reduce((acc, id) => acc + (laneVehicleData[id].classes.find(c => c.name === 'Auto-Rickshaw')?.count || 0), 0), color: '#f59e0b' },
+    { name: 'Pedestrian', count: [1, 2, 3, 4].reduce((acc, id) => acc + (laneVehicleData[id].classes.find(c => c.name === 'Pedestrian')?.count || 0), 0), color: '#10b981' },
+    { name: 'Bus', count: [1, 2, 3, 4].reduce((acc, id) => acc + (laneVehicleData[id].classes.find(c => c.name === 'Bus')?.count || 0), 0), color: '#8b5cf6' },
+    { name: 'Bike', count: [1, 2, 3, 4].reduce((acc, id) => acc + (laneVehicleData[id].classes.find(c => c.name === 'Bike')?.count || 0), 0), color: '#06b6d4' },
+    { name: 'Ambulance', count: [1, 2, 3, 4].reduce((acc, id) => acc + (laneVehicleData[id].classes.find(c => c.name === 'Ambulance')?.count || 0), 0), color: '#f43f5e' }
+  ].map((c) => ({
+    ...c,
+    pct: totalJunctionDetections > 0 ? Math.round((c.count / totalJunctionDetections) * 100) : 0
+  }));
+
 
   const currentLaneData = typeof selectedView === 'number' ? laneVehicleData[selectedView] : null;
 

@@ -122,8 +122,9 @@ def generate_detections_for_lane(
         return [
             {"vehicle_class": "bus", "confidence_score": 0.92, "bbox_x": 0.485, "bbox_y": 0.410, "bbox_w": 0.065, "bbox_h": 0.185},
             {"vehicle_class": "car", "confidence_score": 0.94, "bbox_x": 0.245, "bbox_y": 0.535, "bbox_w": 0.075, "bbox_h": 0.125},
-            {"vehicle_class": "auto-rickshaw", "confidence_score": 0.91, "bbox_x": 0.380, "bbox_y": 0.450, "bbox_w": 0.055, "bbox_h": 0.095},
-            {"vehicle_class": "bike", "confidence_score": 0.89, "bbox_x": 0.280, "bbox_y": 0.650, "bbox_w": 0.040, "bbox_h": 0.090}
+            {"vehicle_class": "car", "confidence_score": 0.92, "bbox_x": 0.608, "bbox_y": 0.502, "bbox_w": 0.057, "bbox_h": 0.120},
+            {"vehicle_class": "auto-rickshaw", "confidence_score": 0.91, "bbox_x": 0.836, "bbox_y": 0.736, "bbox_w": 0.087, "bbox_h": 0.101},
+            {"vehicle_class": "bike", "confidence_score": 0.89, "bbox_x": 0.356, "bbox_y": 0.529, "bbox_w": 0.022, "bbox_h": 0.076}
         ]
     elif lane_number == 3:
         return [
@@ -133,10 +134,10 @@ def generate_detections_for_lane(
         ]
     else:  # Lane 4
         return [
-            {"vehicle_class": "car", "confidence_score": 0.96, "bbox_x": 0.488, "bbox_y": 0.410, "bbox_w": 0.191, "bbox_h": 0.248},
-            {"vehicle_class": "auto-rickshaw", "confidence_score": 0.94, "bbox_x": 0.000, "bbox_y": 0.430, "bbox_w": 0.249, "bbox_h": 0.357},
-            {"vehicle_class": "auto-rickshaw", "confidence_score": 0.92, "bbox_x": 0.220, "bbox_y": 0.378, "bbox_w": 0.212, "bbox_h": 0.275},
-            {"vehicle_class": "auto-rickshaw", "confidence_score": 0.90, "bbox_x": 0.656, "bbox_y": 0.362, "bbox_w": 0.070, "bbox_h": 0.176}
+            {"vehicle_class": "auto-rickshaw", "confidence_score": 0.95, "bbox_x": 0.000, "bbox_y": 0.430, "bbox_w": 0.249, "bbox_h": 0.357},
+            {"vehicle_class": "auto-rickshaw", "confidence_score": 0.93, "bbox_x": 0.220, "bbox_y": 0.378, "bbox_w": 0.212, "bbox_h": 0.275},
+            {"vehicle_class": "car", "confidence_score": 0.94, "bbox_x": 0.488, "bbox_y": 0.410, "bbox_w": 0.191, "bbox_h": 0.248},
+            {"vehicle_class": "pedestrian", "confidence_score": 0.89, "bbox_x": 0.734, "bbox_y": 0.462, "bbox_w": 0.127, "bbox_h": 0.534}
         ]
 
 
