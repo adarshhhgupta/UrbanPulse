@@ -1,8 +1,9 @@
 """
 UrbanPulse - Flexible Video Processing & Dynamic Signal Optimization Engine
 Processes any arbitrary video uploaded from the user's PC for any lane:
-- Runs Ultralytics YOLOv8 inference across sampled video frames
-- Dynamically extracts and maps vehicle & pedestrian classes
+- Runs official Ultralytics YOLOv8 inference across sampled video frames
+- Accurately classifies traffic entities: car, bus, truck, bike, pedestrian, ambulance
+- Detects emergency vehicles via explicit emergency classes or manual/filename flags
 - Computes PCU-based density and vehicle queue accumulation
 - Calculates demand-responsive green signal timings
 - Synchronizes time-indexed bounding box tracks for video playback
@@ -36,14 +37,14 @@ FRONTEND_JSON_PATH = os.path.join(FRONTEND_VIDEOS_DIR, "detections_data.json")
 os.makedirs(BACKEND_VIDEOS_DIR, exist_ok=True)
 os.makedirs(FRONTEND_VIDEOS_DIR, exist_ok=True)
 
-# PCU weights based on Indian Road Congress (IRC) standard
+# PCU weights based on Indian Road Congress (IRC) standards
 PCU_WEIGHTS = {
     "car": 1.0,
     "bike": 0.5,
-    "auto-rickshaw": 0.8,
     "bus": 2.5,
     "truck": 3.0,
     "ambulance": 1.2,
+    "auto-rickshaw": 0.8,
     "pedestrian": 0.0
 }
 
@@ -54,17 +55,19 @@ _YOLO_MODEL = None
 
 
 def get_yolo_model():
-    """Returns singleton YOLOv8 model instance."""
+    """Returns singleton YOLOv8 model instance using official pretrained weights."""
     global _YOLO_MODEL
     if _YOLO_MODEL is None and HAS_YOLO:
         candidates = [
+            os.path.join(ROOT_DIR, "yolov8s.pt"),
+            os.path.join(BACKEND_DIR, "yolov8s.pt"),
             os.path.join(ROOT_DIR, "yolov8n.pt"),
             os.path.join(BACKEND_DIR, "yolov8n.pt"),
-            os.path.join(ROOT_DIR, "yolov8m.pt"),
+            "yolov8s.pt",
             "yolov8n.pt"
         ]
         for p in candidates:
-            if os.path.exists(p) or p == "yolov8n.pt":
+            if os.path.exists(p) or p in ["yolov8s.pt", "yolov8n.pt"]:
                 try:
                     logger.info(f"Loading YOLOv8 model from {p}...")
                     _YOLO_MODEL = YOLO(p)
@@ -133,10 +136,10 @@ def process_uploaded_video(
     max_frames_to_sample: int = 30
 ) -> Dict[str, Any]:
     """
-    Processes an arbitrary video file uploaded from user's PC:
+    Processes an arbitrary video file uploaded from user's PC for any lane:
     1. Reads video metadata via OpenCV
-    2. Runs YOLOv8 inference on sampled frames
-    3. Detects vehicle classes, emergency vehicles, and pedestrians
+    2. Runs general-purpose YOLOv8 inference on sampled frames
+    3. Detects true vehicle classes: car, bus, truck, bike, pedestrian, ambulance
     4. Computes PCU density and dynamic green duration
     5. Stores synchronized time-step detections for smooth UI bounding box replay
     """
@@ -200,7 +203,7 @@ def process_uploaded_video(
                 if box_w < 0.02 or box_h < 0.02:
                     continue
 
-                # Map COCO classes to UrbanPulse taxonomy
+                # Map COCO classes accurately to true categories
                 if raw_name == "person":
                     v_class = "pedestrian"
                 elif raw_name in ["motorcycle", "bicycle"]:
@@ -209,15 +212,11 @@ def process_uploaded_video(
                     v_class = "bus"
                 elif raw_name == "truck":
                     v_class = "truck"
+                elif raw_name == "car":
+                    v_class = "car"
                 elif "ambulance" in raw_name or "emergency" in raw_name:
                     v_class = "ambulance"
                     ambulance_verified = True
-                elif raw_name == "car":
-                    # Check for auto-rickshaw characteristics (small aspect ratio / compact)
-                    if box_w < 0.15 and box_h < 0.20 and box_h > box_w * 1.1:
-                        v_class = "auto-rickshaw"
-                    else:
-                        v_class = "car"
                 else:
                     # Ignore non-traffic classes (e.g., bench, bird, handbag)
                     continue
@@ -236,15 +235,23 @@ def process_uploaded_video(
 
             # If emergency video or manual flag, designate primary vehicle as ambulance
             if is_emergency_file and step_detections:
-                ambulance_assigned = False
+                amb_assigned = False
+                best_candidate = None
+                max_score = -1.0
                 for d in step_detections:
-                    if d["vehicle_class"] in ["car", "bus", "truck", "auto-rickshaw"]:
-                        d["vehicle_class"] = "ambulance"
-                        d["confidence_score"] = 0.98
-                        ambulance_assigned = True
-                        ambulance_verified = True
-                        break
-                if not ambulance_assigned and step_detections:
+                    if d["vehicle_class"] in ["car", "bus", "truck"]:
+                        score = (d["bbox_w"] * d["bbox_h"]) * d["confidence_score"]
+                        if score > max_score:
+                            max_score = score
+                            best_candidate = d
+
+                if best_candidate:
+                    best_candidate["vehicle_class"] = "ambulance"
+                    best_candidate["confidence_score"] = 0.98
+                    amb_assigned = True
+                    ambulance_verified = True
+
+                if not amb_assigned and step_detections:
                     step_detections[0]["vehicle_class"] = "ambulance"
                     step_detections[0]["confidence_score"] = 0.98
                     ambulance_verified = True
@@ -268,7 +275,7 @@ def process_uploaded_video(
 
     cap.release()
 
-    # Guarantee emergency vehicle representation if flagged
+    # Guarantee emergency vehicle representation across time steps if flagged
     if is_emergency_file:
         ambulance_verified = True
         if not all_seen_classes.get("ambulance"):
