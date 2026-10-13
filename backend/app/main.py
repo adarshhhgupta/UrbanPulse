@@ -44,11 +44,11 @@ def initialize_and_seed_db(max_retries: int = 15, retry_interval: float = 2.0):
         existing_lanes = db.query(Lane).count()
         if existing_lanes == 0:
             logger.info("Database empty. Seeding Reference Scenario...")
-            # 1. Seed Lanes
-            l1 = Lane(id=1, lane_number=1, current_state="green", density_percent=42.0, queue_count=6, is_ambulance_detected=True)
-            l2 = Lane(id=2, lane_number=2, current_state="red", density_percent=82.0, queue_count=19, is_ambulance_detected=False)
-            l3 = Lane(id=3, lane_number=3, current_state="red", density_percent=18.0, queue_count=3, is_ambulance_detected=False)
-            l4 = Lane(id=4, lane_number=4, current_state="red", density_percent=55.0, queue_count=8, is_ambulance_detected=False)
+            # 1. Seed Lanes in Standby State (Awaiting Video Feeds)
+            l1 = Lane(id=1, lane_number=1, current_state="red", density_percent=0.0, queue_count=0, is_ambulance_detected=False)
+            l2 = Lane(id=2, lane_number=2, current_state="red", density_percent=0.0, queue_count=0, is_ambulance_detected=False)
+            l3 = Lane(id=3, lane_number=3, current_state="red", density_percent=0.0, queue_count=0, is_ambulance_detected=False)
+            l4 = Lane(id=4, lane_number=4, current_state="red", density_percent=0.0, queue_count=0, is_ambulance_detected=False)
             db.add_all([l1, l2, l3, l4])
             db.commit()
 

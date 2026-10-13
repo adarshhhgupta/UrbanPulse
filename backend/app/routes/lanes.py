@@ -335,6 +335,25 @@ def trigger_arbitration(db: Session = Depends(get_db)):
     }
 
 
+@router.post("/lanes/clear-all")
+async def clear_all_lanes(db: Session = Depends(get_db)):
+    """Resets all 4 junction lanes to clean standby state with zero detections and no emergency."""
+    all_lanes = db.query(Lane).all()
+    for l in all_lanes:
+        l.density_percent = 0.0
+        l.queue_count = 0
+        l.is_ambulance_detected = False
+        l.current_state = "red"
+        l.last_updated = datetime.utcnow()
+    db.query(Detection).delete()
+    db.commit()
+    try:
+        await _broadcast_ws_telemetry(db)
+    except Exception:
+        pass
+    return {"success": True, "message": "All lane feeds and detections cleared to standby state."}
+
+
 @router.post("/lanes/reset-defaults")
 async def reset_to_reference_defaults(db: Session = Depends(get_db)):
     """Resets junction lanes and detections to the calibrated reference benchmark."""
@@ -411,8 +430,8 @@ async def upload_video_for_lane(
         with open(frontend_dst, "wb") as f:
             f.write(content)
 
-        # If ambulance flag or filename indicates emergency, also mirror to ambulancevid.mp4
-        if manual_ambulance or "ambulance" in file.filename.lower() or "emergency" in file.filename.lower() or lane_id == 1:
+        # If ambulance flag or filename indicates emergency, mirror to ambulancevid.mp4
+        if manual_ambulance or "ambulance" in file.filename.lower() or "emergency" in file.filename.lower():
             shutil.copy2(backend_dst, os.path.join(BACKEND_VIDEOS_DIR, "ambulancevid.mp4"))
             shutil.copy2(backend_dst, os.path.join(FRONTEND_VIDEOS_DIR, "ambulancevid.mp4"))
     except Exception as e:

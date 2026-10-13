@@ -5,6 +5,7 @@ export default function LiveJunction() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [emergencyOverride, setEmergencyOverride] = useState(false);
+  const [manualEmergency, setManualEmergency] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
   const [videoTracks, setVideoTracks] = useState({});
   const [activeDetections, setActiveDetections] = useState({});
@@ -18,22 +19,22 @@ export default function LiveJunction() {
   const [laneTimings, setLaneTimings] = useState({ 1: 20.0, 2: 25.0, 3: 15.0, 4: 20.0 });
   const [priorityOrder, setPriorityOrder] = useState([1, 2, 4, 3]);
 
-  // Clean Upload-Only Mode State (null initially until uploaded from PC)
+  // Clean Upload-Only Feeds State (null initially until uploaded from PC)
   const [customVideoSources, setCustomVideoSources] = useState({ 1: null, 2: null, 3: null, 4: null });
   const [customVideoNames, setCustomVideoNames] = useState({ 1: null, 2: null, 3: null, 4: null });
   const [uploadingLanes, setUploadingLanes] = useState({});
   const [feedbackMessage, setFeedbackMessage] = useState(null);
   const [feedbackType, setFeedbackType] = useState('info');
   const [isBatchProcessing, setIsBatchProcessing] = useState(false);
-  const [studioOpen, setStudioOpen] = useState(true);
 
-  // Staged files for batch upload
+  // Staged files & emergency flags for lanes
   const [stagedFiles, setStagedFiles] = useState({ 1: null, 2: null, 3: null, 4: null });
   const [stagedAmbulance, setStagedAmbulance] = useState({ 1: false, 2: false, 3: false, 4: false });
 
-  // References to video elements & file inputs
+  // Element and file input references
   const videoRefs = useRef({});
   const fileInputRefs = useRef({});
+  const batchFileInputRef = useRef(null);
 
   const laneDirections = {
     1: 'Northbound',
@@ -42,13 +43,27 @@ export default function LiveJunction() {
     4: 'Westbound'
   };
 
-  // Determine active green lane (locks to emergency lane if triggered)
-  const effectiveGreenLane = emergencyOverride ? 1 : activeLane;
-
   // Check if at least one lane has an active video feed
   const hasAnyActiveVideo = Object.values(customVideoSources).some((src) => src !== null);
+  const activeFeedsCount = Object.values(customVideoSources).filter(Boolean).length;
 
-  // Fetch telemetry & signal plan on mount
+  // Refs for tracking async websocket callbacks without stale closure
+  const hasAnyActiveVideoRef = useRef(false);
+  const manualEmergencyRef = useRef(false);
+  hasAnyActiveVideoRef.current = hasAnyActiveVideo;
+  manualEmergencyRef.current = manualEmergency;
+
+  // Dynamically identify which lane detected or flagged an emergency
+  const detectedAmbulanceLane = Number(
+    lanes.find((l) => l.is_ambulance_detected)?.lane_number ||
+    Object.entries(stagedAmbulance).find(([_, isAmb]) => isAmb)?.[0] ||
+    1
+  );
+
+  // Determine active green lane (locks to the emergency lane if override is engaged)
+  const effectiveGreenLane = emergencyOverride ? detectedAmbulanceLane : activeLane;
+
+  // Fetch telemetry on mount & establish WebSocket stream
   useEffect(() => {
     let ws = null;
     let reconnectTimeout = null;
@@ -60,8 +75,14 @@ export default function LiveJunction() {
         if (res.ok) {
           const data = await res.json();
           setLanes(data);
+          // Only engage emergency if database explicitly has an active ambulance and we have videos
+          const hasAmbInDb = data.some((l) => l.is_ambulance_detected);
+          if (hasAmbInDb && hasAnyActiveVideoRef.current) {
+            setEmergencyOverride(true);
+          } else {
+            setEmergencyOverride(false);
+          }
         } else {
-          // Initialize clean standby lane models
           setLanes([
             { id: 1, lane_number: 1, current_state: 'red', density_percent: 0.0, queue_count: 0, is_ambulance_detected: false },
             { id: 2, lane_number: 2, current_state: 'red', density_percent: 0.0, queue_count: 0, is_ambulance_detected: false },
@@ -93,8 +114,13 @@ export default function LiveJunction() {
             if (msg.lanes && Array.isArray(msg.lanes)) {
               setLanes(msg.lanes);
             }
+            // Only trigger emergency if active video feeds exist or manual emergency was requested
             if (msg.active_emergency) {
-              setEmergencyOverride(true);
+              if (hasAnyActiveVideoRef.current || manualEmergencyRef.current) {
+                setEmergencyOverride(true);
+              }
+            } else if (!manualEmergencyRef.current) {
+              setEmergencyOverride(false);
             }
           } catch (e) {
             console.error('Error parsing WS telemetry:', e);
@@ -170,7 +196,6 @@ export default function LiveJunction() {
       setSecondsRemaining((prev) => {
         if (prev <= 1) {
           setActiveLane((curr) => {
-            // Find next approach (prefer approaches with active videos if available)
             let next = (curr % 4) + 1;
             const nextDuration = sequencerMode === 'adaptive'
               ? Math.round(laneTimings[next] || laneTimings[String(next)] || 18)
@@ -187,22 +212,22 @@ export default function LiveJunction() {
     return () => clearInterval(timer);
   }, [emergencyOverride, isCycleRunning, sequencerMode, phaseDuration, laneTimings, hasAnyActiveVideo]);
 
-  // Direct video upload trigger from PC folder
-  const handleFileSelect = (laneNumber, file) => {
+  // Direct video upload trigger from PC folder for a single lane
+  const handleFileSelect = (laneNumber, file, manualAmb = false) => {
     if (!file) return;
 
-    // 1. Create immediate local object URL for instant zero-latency playback
+    // Create immediate local object URL for instant zero-latency playback
     const localBlobUrl = URL.createObjectURL(file);
     setCustomVideoSources((prev) => ({ ...prev, [laneNumber]: localBlobUrl }));
     setCustomVideoNames((prev) => ({ ...prev, [laneNumber]: file.name }));
 
-    const isAmb = file.name.toLowerCase().includes('ambulance') || file.name.toLowerCase().includes('emergency');
+    const isAmb = manualAmb || stagedAmbulance[laneNumber] || file.name.toLowerCase().includes('ambulance') || file.name.toLowerCase().includes('emergency');
     if (isAmb) {
       setStagedAmbulance((prev) => ({ ...prev, [laneNumber]: true }));
     }
     setStagedFiles((prev) => ({ ...prev, [laneNumber]: file }));
 
-    // 2. Automatically trigger YOLOv8 inference upload
+    // Trigger YOLOv8 inference upload
     uploadVideoToServer(laneNumber, file, isAmb);
   };
 
@@ -238,6 +263,12 @@ export default function LiveJunction() {
 
         if (data.video_metrics.is_ambulance_detected) {
           setEmergencyOverride(true);
+        } else {
+          // Check if any other lane still has an ambulance
+          const anyOtherAmb = (data.all_lanes || []).some((l) => l.is_ambulance_detected && l.lane_number !== laneNumber);
+          if (!anyOtherAmb && !manualEmergency) {
+            setEmergencyOverride(false);
+          }
         }
       }
 
@@ -262,27 +293,41 @@ export default function LiveJunction() {
     }
   };
 
-  // Batch upload for all staged videos
-  const handleBatchUploadAll = async () => {
-    const activeLanes = [1, 2, 3, 4].filter((l) => stagedFiles[l] !== null);
-    if (activeLanes.length === 0) {
-      setFeedbackMessage('Please select at least one video file from your computer.');
-      setFeedbackType('error');
-      setTimeout(() => setFeedbackMessage(null), 3500);
-      return;
-    }
+  // Batch upload up to 4 arbitrary videos selected simultaneously from PC folder
+  const handleBatchFilesSelected = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
     setIsBatchProcessing(true);
-    setFeedbackMessage('⚡ Multi-Approaches Ingestion: Running YOLOv8 across all staged lane feeds...');
+    setFeedbackMessage(`⚡ Ingesting ${files.length} videos from PC folder with YOLOv8 Neural Model...`);
     setFeedbackType('info');
 
-    const formData = new FormData();
-    if (stagedFiles[1]) formData.append('lane1', stagedFiles[1]);
-    if (stagedFiles[2]) formData.append('lane2', stagedFiles[2]);
-    if (stagedFiles[3]) formData.append('lane3', stagedFiles[3]);
-    if (stagedFiles[4]) formData.append('lane4', stagedFiles[4]);
+    const newSources = { ...customVideoSources };
+    const newNames = { ...customVideoNames };
+    const newStaged = { ...stagedFiles };
+    const newAmb = { ...stagedAmbulance };
 
-    const ambLane = [1, 2, 3, 4].find((l) => stagedAmbulance[l]);
+    files.slice(0, 4).forEach((file, idx) => {
+      const laneNum = idx + 1;
+      newSources[laneNum] = URL.createObjectURL(file);
+      newNames[laneNum] = file.name;
+      newStaged[laneNum] = file;
+      const isAmb = file.name.toLowerCase().includes('ambulance') || file.name.toLowerCase().includes('emergency') || newAmb[laneNum];
+      newAmb[laneNum] = isAmb;
+    });
+
+    setCustomVideoSources(newSources);
+    setCustomVideoNames(newNames);
+    setStagedFiles(newStaged);
+    setStagedAmbulance(newAmb);
+
+    const formData = new FormData();
+    if (newStaged[1]) formData.append('lane1', newStaged[1]);
+    if (newStaged[2]) formData.append('lane2', newStaged[2]);
+    if (newStaged[3]) formData.append('lane3', newStaged[3]);
+    if (newStaged[4]) formData.append('lane4', newStaged[4]);
+
+    const ambLane = [1, 2, 3, 4].find((l) => newAmb[l]);
     if (ambLane) formData.append('ambulance_lane', ambLane);
 
     try {
@@ -306,9 +351,11 @@ export default function LiveJunction() {
       }
       if (data.decision && data.decision.rule_triggered === 'emergency') {
         setEmergencyOverride(true);
+      } else if (!manualEmergency) {
+        setEmergencyOverride(false);
       }
 
-      setFeedbackMessage('✓ Successfully processed all uploaded videos! Dynamic signal timings arbitrated.');
+      setFeedbackMessage(`✓ Ingested ${files.length} lane video feeds! Dynamic signal timings arbitrated.`);
       setFeedbackType('success');
     } catch (err) {
       setFeedbackMessage(`Batch upload error: ${err.message}`);
@@ -316,10 +363,11 @@ export default function LiveJunction() {
     } finally {
       setIsBatchProcessing(false);
       setTimeout(() => setFeedbackMessage(null), 5000);
+      if (batchFileInputRef.current) batchFileInputRef.current.value = '';
     }
   };
 
-  // Optional: Load sample demo videos for quick demonstration
+  // Load sample demo benchmark videos for 1-click test
   const handleLoadSampleDemos = async () => {
     setFeedbackMessage('Loading 4 sample demo benchmark videos for demonstration...');
     setFeedbackType('info');
@@ -336,8 +384,10 @@ export default function LiveJunction() {
       3: 'demo_lane3_transit.mp4',
       4: 'demo_lane4_arterial.mp4'
     });
+    setStagedAmbulance({ 1: true, 2: false, 3: false, 4: false });
 
     try {
+      await fetch('/api/lanes/reset-defaults', { method: 'POST' }).catch(() => {});
       const res = await fetch(`/videos/detections_data.json?t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
@@ -347,17 +397,25 @@ export default function LiveJunction() {
       if (planRes.ok) {
         const plan = await planRes.json();
         if (plan.lane_timings) setLaneTimings(plan.lane_timings);
+        if (plan.rule_triggered === 'emergency') {
+          setEmergencyOverride(true);
+        }
       }
-      setFeedbackMessage('✓ Sample demo videos loaded successfully.');
+      const lanesRes = await fetch('/api/lanes');
+      if (lanesRes.ok) {
+        const lData = await lanesRes.json();
+        setLanes(lData);
+      }
+      setFeedbackMessage('✓ 4 Benchmark demo videos loaded with calibrated detections.');
       setFeedbackType('success');
     } catch (e) {
-      setFeedbackMessage('Demo videos loaded.');
+      setFeedbackMessage('Demo benchmark videos loaded.');
     } finally {
       setTimeout(() => setFeedbackMessage(null), 3500);
     }
   };
 
-  // Clear all feeds back to clean upload-only state
+  // Clear all feeds back to clean standby state
   const handleClearAllFeeds = async () => {
     setCustomVideoSources({ 1: null, 2: null, 3: null, 4: null });
     setCustomVideoNames({ 1: null, 2: null, 3: null, 4: null });
@@ -365,8 +423,18 @@ export default function LiveJunction() {
     setStagedAmbulance({ 1: false, 2: false, 3: false, 4: false });
     setActiveDetections({});
     setEmergencyOverride(false);
+    setManualEmergency(false);
     setActiveLane(1);
     setSecondsRemaining(20);
+
+    // Call backend reset to clean standby
+    try {
+      await fetch('/api/lanes/clear-all', { method: 'POST' }).catch(() =>
+        fetch('http://localhost:8001/api/lanes/clear-all', { method: 'POST' })
+      );
+    } catch (e) {
+      console.error('Failed clearing lanes:', e);
+    }
 
     setLanes([
       { id: 1, lane_number: 1, current_state: 'red', density_percent: 0.0, queue_count: 0, is_ambulance_detected: false },
@@ -375,25 +443,26 @@ export default function LiveJunction() {
       { id: 4, lane_number: 4, current_state: 'red', density_percent: 0.0, queue_count: 0, is_ambulance_detected: false }
     ]);
 
-    setFeedbackMessage('✓ Feeds cleared. Ready for your custom PC video uploads.');
+    setFeedbackMessage('✓ All feeds cleared. Standby mode active. Ready for new video uploads.');
     setFeedbackType('success');
     setTimeout(() => setFeedbackMessage(null), 3000);
   };
 
   const toggleEmergency = () => {
     if (!emergencyOverride) {
+      setManualEmergency(true);
       setEmergencyOverride(true);
-      setActiveLane(1);
       setSecondsRemaining(60);
     } else {
+      setManualEmergency(false);
       setEmergencyOverride(false);
-      setActiveLane(1);
-      setSecondsRemaining(laneTimings[1] || 20);
+      setSecondsRemaining(laneTimings[activeLane] || 20);
     }
   };
 
   const selectLane = (laneNum) => {
     setEmergencyOverride(false);
+    setManualEmergency(false);
     setActiveLane(laneNum);
     const dur = sequencerMode === 'adaptive' ? (laneTimings[laneNum] || 20) : phaseDuration;
     setSecondsRemaining(dur);
@@ -423,6 +492,7 @@ export default function LiveJunction() {
 
   return (
     <section id="live-junction">
+      {/* Section Header */}
       <div className="section-header">
         <div className="section-tag">Edge Perception Studio & Demand-Responsive Signal Control</div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '1rem' }}>
@@ -435,99 +505,14 @@ export default function LiveJunction() {
               Live 4-Lane Junction Perception & Control
             </h2>
             <p className="section-desc">
-              Upload any 4 traffic videos from your PC folder. YOLOv8 runs real-time object detection across vehicles and pedestrians, computes dynamic PCU road density, and arbitrates green signal timings.
+              Upload traffic videos directly into each lane viewport or batch ingest all 4 feeds. YOLOv8 runs real-time object detection across vehicles, computes dynamic PCU road density, and arbitrates green signal timings.
             </p>
           </div>
 
-          {/* Junction Toolbar Controls */}
-          <div className="cycle-toolbar">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <span className="font-mono" style={{ fontSize: '0.75rem', color: wsConnected ? 'var(--signal-green)' : 'var(--signal-yellow)' }}>
               {wsConnected ? '● WS Live Stream' : '○ Standby Snapshot'}
             </span>
-
-            {/* Toggle Studio Panel */}
-            <button
-              className={`sim-btn ${studioOpen ? 'sim-btn-active' : ''}`}
-              onClick={() => setStudioOpen(!studioOpen)}
-              title="Open PC Video Upload Studio"
-            >
-              <svg className="icon icon-sm" viewBox="0 0 24 24">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="17 8 12 3 7 8" />
-                <line x1="12" y1="3" x2="12" y2="15" />
-              </svg>
-              {studioOpen ? '📂 Hide Upload Studio' : '📂 Upload Videos from PC'}
-            </button>
-
-            {/* Sequencer Strategy */}
-            <div className="sequencer-mode-pill font-mono" title="Signal Sequencing Strategy">
-              <button
-                className={`mode-tab-btn ${sequencerMode === 'adaptive' ? 'active' : ''}`}
-                onClick={() => setSequencerMode('adaptive')}
-                title="Green phase duration dynamically matches detected vehicle queue"
-              >
-                ⚡ Dynamic (YOLO)
-              </button>
-              <button
-                className={`mode-tab-btn ${sequencerMode === 'fixed' ? 'active' : ''}`}
-                onClick={() => setSequencerMode('fixed')}
-                title="Fixed rapid test duration"
-              >
-                ⏱ Fixed
-              </button>
-            </div>
-
-            {/* Fixed Mode Duration Selector */}
-            {sequencerMode === 'fixed' && (
-              <div className="phase-duration-selector font-mono" title="Fixed cycle duration">
-                {[5, 8, 10].map((sec) => (
-                  <button
-                    key={sec}
-                    className={`timer-chip ${phaseDuration === sec ? 'active' : ''}`}
-                    onClick={() => {
-                      setPhaseDuration(sec);
-                      setSecondsRemaining(sec);
-                    }}
-                  >
-                    {sec}s
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Play/Pause Cycle */}
-            <button
-              className="sim-btn"
-              onClick={() => setIsCycleRunning(!isCycleRunning)}
-              title={isCycleRunning ? 'Pause signal sequencing' : 'Resume signal sequencing'}
-              style={{ borderColor: isCycleRunning ? 'var(--signal-green)' : 'var(--signal-yellow)' }}
-            >
-              {isCycleRunning ? '⏸ Pause' : '▶ Resume'}
-            </button>
-
-            {/* Force Lane Jump */}
-            <div className="lane-quick-selectors font-mono" title="Force green on specific approach">
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginRight: 2 }}>FORCE:</span>
-              {[1, 2, 3, 4].map((num) => (
-                <button
-                  key={num}
-                  className={`lane-selector-btn ${effectiveGreenLane === num ? 'active' : ''}`}
-                  onClick={() => selectLane(num)}
-                >
-                  L{num}
-                </button>
-              ))}
-            </div>
-
-            {/* Emergency Ambulance Override */}
-            <button className={`sim-btn ${emergencyOverride ? 'sim-btn-active' : ''}`} onClick={toggleEmergency}>
-              <svg className="icon icon-sm text-critical" viewBox="0 0 24 24">
-                <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-              {emergencyOverride ? '🚨 Cancel Emergency' : '🚑 Trigger Ambulance'}
-            </button>
           </div>
         </div>
 
@@ -541,178 +526,146 @@ export default function LiveJunction() {
       </div>
 
       {/* =========================================================================
-          PC VIDEO INGESTION STUDIO PANEL
+          UNIFIED ORCHESTRATION & INGESTION TOOLBAR (NO DUPLICATE CARDS)
           ========================================================================= */}
-      {studioOpen && (
-        <div className="video-studio-panel">
-          <div className="studio-header">
-            <div className="studio-title-box">
-              <span className="studio-badge">Video Ingestion Studio</span>
-              <div>
-                <h3 className="studio-title">Upload 4 Traffic Videos from PC Folder</h3>
-                <p className="studio-subtitle">
-                  Select video files (.mp4, .avi, .mov, .mkv, .webm) for each approach from your computer. The model runs flexible YOLOv8 inference, counts vehicle queues, and computes demand-responsive green timings.
-                </p>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <button
-                className="load-sample-btn"
-                onClick={handleLoadSampleDemos}
-                title="Populate all 4 lanes with sample benchmark demo videos"
-              >
-                ▶ Load 4 Sample Demo Videos
-              </button>
-              <button
-                className="reset-benchmark-btn"
-                onClick={handleClearAllFeeds}
-                title="Clear all active feeds and return to empty upload mode"
-              >
-                🗑 Clear All Feeds
-              </button>
-            </div>
-          </div>
-
-          {/* 4-Lane File Drop Grid */}
-          <div className="batch-upload-grid">
-            {[1, 2, 3, 4].map((laneNum) => {
-              const file = stagedFiles[laneNum];
-              const isUploading = uploadingLanes[laneNum];
-              const customName = customVideoNames[laneNum];
-              const hasFeed = customVideoSources[laneNum] !== null;
-
-              return (
-                <div
-                  key={laneNum}
-                  className={`upload-lane-card ${hasFeed ? 'card-has-file' : ''} ${isUploading ? 'card-is-uploading' : ''}`}
-                >
-                  <div className="upload-lane-header">
-                    <span className="upload-lane-tag">
-                      <span
-                        style={{
-                          width: 8,
-                          height: 8,
-                          borderRadius: '50%',
-                          backgroundColor: hasFeed
-                            ? (effectiveGreenLane === laneNum ? 'var(--signal-green)' : 'var(--signal-red)')
-                            : '#64748b'
-                        }}
-                      />
-                      Lane {laneNum}
-                    </span>
-                    <span className="upload-lane-dir">{laneDirections[laneNum]}</span>
-                  </div>
-
-                  {/* Hidden file input */}
-                  <input
-                    ref={(el) => (fileInputRefs.current[laneNum] = el)}
-                    type="file"
-                    accept="video/*,.mp4,.avi,.mov,.mkv,.webm"
-                    style={{ display: 'none' }}
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        handleFileSelect(laneNum, e.target.files[0]);
-                      }
-                    }}
-                  />
-
-                  {/* File Selection Box */}
-                  {hasFeed ? (
-                    <div className="file-selected-pill">
-                      <span className="file-name-text" title={customName || `Lane ${laneNum} Video`}>
-                        📹 {customName || `Lane ${laneNum} Video`}
-                      </span>
-                      <button
-                        className="remove-file-btn"
-                        title="Remove feed"
-                        onClick={() => {
-                          setCustomVideoSources((prev) => ({ ...prev, [laneNum]: null }));
-                          setCustomVideoNames((prev) => ({ ...prev, [laneNum]: null }));
-                          setStagedFiles((prev) => ({ ...prev, [laneNum]: null }));
-                          if (fileInputRefs.current[laneNum]) fileInputRefs.current[laneNum].value = '';
-                        }}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ) : (
-                    <div
-                      className="dropzone-box"
-                      onClick={() => fileInputRefs.current[laneNum]?.click()}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                          handleFileSelect(laneNum, e.dataTransfer.files[0]);
-                        }
-                      }}
-                      title="Click or drop video from PC"
-                    >
-                      <svg className="dropzone-icon" viewBox="0 0 24 24">
-                        <polygon points="23 7 16 12 23 17 23 7" />
-                        <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                      </svg>
-                      <span className="dropzone-prompt">Choose Video</span>
-                      <span className="dropzone-subtext">Drag & drop or browse</span>
-                    </div>
-                  )}
-
-                  {/* Ambulance Priority Toggle */}
-                  <label className="ambulance-checkbox-row">
-                    <input
-                      type="checkbox"
-                      checked={stagedAmbulance[laneNum]}
-                      onChange={(e) =>
-                        setStagedAmbulance((prev) => ({ ...prev, [laneNum]: e.target.checked }))
-                      }
-                    />
-                    <span>🚑 Emergency / Ambulance</span>
-                  </label>
-
-                  {/* Action button */}
-                  <button
-                    className="single-upload-btn"
-                    disabled={isUploading || isBatchProcessing}
-                    onClick={() => {
-                      if (file) {
-                        uploadVideoToServer(laneNum, file, stagedAmbulance[laneNum]);
-                      } else {
-                        fileInputRefs.current[laneNum]?.click();
-                      }
-                    }}
-                  >
-                    {isUploading ? '⚡ Analyzing...' : hasFeed ? `Re-detect L${laneNum}` : `Select Video L${laneNum}`}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Batch Actions Bar */}
-          <div className="studio-actions-bar">
-            <span className="font-mono text-dim" style={{ fontSize: '0.72rem' }}>
+      <div className="junction-orchestration-bar">
+        <div className="orchestration-left">
+          {/* Active Feeds Indicator */}
+          <div className="stream-status-pill font-mono">
+            <span
+              className="pulse-dot"
+              style={{
+                backgroundColor: hasAnyActiveVideo ? 'var(--signal-green)' : '#64748b',
+                boxShadow: hasAnyActiveVideo ? '0 0 8px var(--signal-green)' : 'none'
+              }}
+            />
+            <span>
               {hasAnyActiveVideo
-                ? `● ${Object.values(customVideoSources).filter(Boolean).length}/4 Lane Feeds Active`
-                : '○ No videos loaded yet. Drop or choose any videos from your computer folder.'}
+                ? `● ACTIVE: ${activeFeedsCount}/4 FEEDS STREAMING`
+                : '○ STANDBY: 0/4 FEEDS (READY FOR PC UPLOADS)'}
             </span>
+          </div>
 
+          {/* Hidden Multi-file picker for batch uploads */}
+          <input
+            ref={batchFileInputRef}
+            type="file"
+            multiple
+            accept="video/*,.mp4,.avi,.mov,.mkv,.webm"
+            style={{ display: 'none' }}
+            onChange={handleBatchFilesSelected}
+          />
+
+          {/* Batch Upload Button */}
+          <button
+            className="btn-batch-upload"
+            disabled={isBatchProcessing}
+            onClick={() => batchFileInputRef.current?.click()}
+            title="Select up to 4 video files simultaneously from your PC folder to populate all lanes"
+          >
+            <svg className="icon icon-sm" viewBox="0 0 24 24">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            {isBatchProcessing ? '⚡ Analyzing All Feeds...' : '📁 Batch Upload (1–4 Videos)'}
+          </button>
+
+          {/* Sample benchmark videos */}
+          <button
+            className="load-sample-btn"
+            onClick={handleLoadSampleDemos}
+            title="Populate 4 calibrated benchmark sample demo videos"
+          >
+            ▶ Load Benchmark Demo
+          </button>
+
+          {/* Clear all feeds */}
+          <button
+            className="reset-benchmark-btn"
+            onClick={handleClearAllFeeds}
+            title="Reset all lane feeds, clear detections, and return to clean standby"
+          >
+            🗑 Clear Feeds
+          </button>
+        </div>
+
+        <div className="orchestration-right">
+          {/* Sequencer Strategy */}
+          <div className="sequencer-mode-pill font-mono" title="Signal Sequencing Strategy">
             <button
-              className="batch-btn-primary"
-              disabled={isBatchProcessing || !Object.values(stagedFiles).some((f) => f !== null)}
-              onClick={handleBatchUploadAll}
+              className={`mode-tab-btn ${sequencerMode === 'adaptive' ? 'active' : ''}`}
+              onClick={() => setSequencerMode('adaptive')}
+              title="Green phase duration dynamically matches detected vehicle queue"
             >
-              <svg className="icon icon-sm" viewBox="0 0 24 24">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-              </svg>
-              {isBatchProcessing ? '⚡ Analyzing All Videos with YOLOv8...' : 'Ingest All Staged Videos'}
+              ⚡ Dynamic (YOLO)
+            </button>
+            <button
+              className={`mode-tab-btn ${sequencerMode === 'fixed' ? 'active' : ''}`}
+              onClick={() => setSequencerMode('fixed')}
+              title="Fixed rapid test duration"
+            >
+              ⏱ Fixed
             </button>
           </div>
-        </div>
-      )}
 
-      {/* Emergency Corridor Banner */}
-      {emergencyOverride && (
+          {sequencerMode === 'fixed' && (
+            <div className="phase-duration-selector font-mono" title="Fixed cycle duration">
+              {[5, 8, 10].map((sec) => (
+                <button
+                  key={sec}
+                  className={`timer-chip ${phaseDuration === sec ? 'active' : ''}`}
+                  onClick={() => {
+                    setPhaseDuration(sec);
+                    setSecondsRemaining(sec);
+                  }}
+                >
+                  {sec}s
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Play/Pause Cycle */}
+          <button
+            className="sim-btn"
+            onClick={() => setIsCycleRunning(!isCycleRunning)}
+            title={isCycleRunning ? 'Pause signal sequencing' : 'Resume signal sequencing'}
+            style={{ borderColor: isCycleRunning ? 'var(--signal-green)' : 'var(--signal-yellow)' }}
+          >
+            {isCycleRunning ? '⏸ Pause' : '▶ Resume'}
+          </button>
+
+          {/* Force Lane Jump */}
+          <div className="lane-quick-selectors font-mono" title="Force green on specific approach">
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginRight: 2 }}>FORCE:</span>
+            {[1, 2, 3, 4].map((num) => (
+              <button
+                key={num}
+                className={`lane-selector-btn ${effectiveGreenLane === num ? 'active' : ''}`}
+                onClick={() => selectLane(num)}
+              >
+                L{num}
+              </button>
+            ))}
+          </div>
+
+          {/* Emergency Ambulance Override */}
+          <button className={`sim-btn ${emergencyOverride ? 'sim-btn-active' : ''}`} onClick={toggleEmergency}>
+            <svg className="icon icon-sm text-critical" viewBox="0 0 24 24">
+              <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            {emergencyOverride ? '🚨 Cancel Emergency' : '🚑 Trigger Ambulance'}
+          </button>
+        </div>
+      </div>
+
+      {/* =========================================================================
+          EMERGENCY CORRIDOR BANNER (DYNAMIC TO DETECTED LANE, ONLY IF ACTIVE)
+          ========================================================================= */}
+      {emergencyOverride && (hasAnyActiveVideo || manualEmergency) && (
         <div className="emergency-banner" id="emergencyBanner">
           <div className="emergency-left">
             <div className="siren-icon-box">
@@ -723,9 +676,11 @@ export default function LiveJunction() {
               </svg>
             </div>
             <div>
-              <div className="emergency-title">EMERGENCY OVERRIDE ENGAGED — AMBULANCE DETECTED IN LANE 1</div>
+              <div className="emergency-title">
+                EMERGENCY OVERRIDE ENGAGED — AMBULANCE DETECTED IN LANE {detectedAmbulanceLane}
+              </div>
               <div className="emergency-sub">
-                Corridor Clearing: Opposing lanes locked to <strong style={{ color: '#fff' }}>RED</strong>. Lane 1 feed actively streaming. Next downstream node Junction 7 pre-empted via MQTT.
+                Corridor Clearing: Opposing lanes locked to <strong style={{ color: '#fff' }}>RED</strong>. Lane {detectedAmbulanceLane} ({laneDirections[detectedAmbulanceLane]}) green corridor active. Next downstream node Junction 7 pre-empted via MQTT.
               </div>
             </div>
           </div>
@@ -735,7 +690,9 @@ export default function LiveJunction() {
         </div>
       )}
 
-      {/* Main 4-Lane Surveillance & Perception Grid */}
+      {/* =========================================================================
+          MAIN 4-LANE PERCEPTION & CONTROL GRID (SINGLE SOURCE OF TRUTH)
+          ========================================================================= */}
       {loading ? (
         <div className="loading-box">Initializing Quad-Stream Feed Telemetry...</div>
       ) : (
@@ -771,7 +728,8 @@ export default function LiveJunction() {
               ? currentDetections.filter((d) => d.vehicle_class === 'pedestrian' || d.vehicle_class === 'person').length
               : 0;
 
-            const allocatedGreen = laneTimings[laneNumber] || (laneNumber === 1 && emergencyOverride ? 60.0 : 20.0);
+            const isThisLaneEmergency = (emergencyOverride && laneNumber === detectedAmbulanceLane) || lane.is_ambulance_detected;
+            const allocatedGreen = laneTimings[laneNumber] || (isThisLaneEmergency ? 60.0 : 20.0);
 
             let badgeText = '';
             let badgeClass = 'badge-override-standby';
@@ -780,7 +738,7 @@ export default function LiveJunction() {
               badgeText = 'AWAITING VIDEO FEED';
               badgeClass = 'badge-override-standby';
             } else if (emergencyOverride) {
-              if (laneNumber === 1) {
+              if (laneNumber === detectedAmbulanceLane) {
                 badgeText = `AMBULANCE OVERRIDE — GREEN (${secondsRemaining}s)`;
                 badgeClass = 'badge-override-green';
               } else {
@@ -800,7 +758,7 @@ export default function LiveJunction() {
             return (
               <div
                 key={laneNumber}
-                className={`lane-panel ${emergencyOverride && lane.is_ambulance_detected ? 'critical-active' : ''} ${isGreen ? 'active-green-phase' : ''}`}
+                className={`lane-panel ${isThisLaneEmergency ? 'critical-active' : ''} ${isGreen ? 'active-green-phase' : ''}`}
               >
                 {/* Lane Card Header */}
                 <div className="lane-header">
@@ -821,25 +779,55 @@ export default function LiveJunction() {
                   </span>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <button
-                      className="lane-quick-upload-trigger"
-                      onClick={() => fileInputRefs.current[laneNumber]?.click()}
-                      title="Upload video from PC folder"
-                    >
-                      📁 {hasVideo ? 'Replace' : 'Upload'}
-                    </button>
+                    {hasVideo && (
+                      <>
+                        <button
+                          className="lane-quick-upload-trigger"
+                          onClick={() => fileInputRefs.current[laneNumber]?.click()}
+                          title="Replace video for this lane"
+                        >
+                          🔄 Replace
+                        </button>
+                        <button
+                          className="lane-quick-remove-trigger"
+                          onClick={() => {
+                            setCustomVideoSources((prev) => ({ ...prev, [laneNumber]: null }));
+                            setCustomVideoNames((prev) => ({ ...prev, [laneNumber]: null }));
+                            setStagedFiles((prev) => ({ ...prev, [laneNumber]: null }));
+                            setStagedAmbulance((prev) => ({ ...prev, [laneNumber]: false }));
+                            if (fileInputRefs.current[laneNumber]) fileInputRefs.current[laneNumber].value = '';
+                          }}
+                          title="Remove video from this lane"
+                        >
+                          ✕
+                        </button>
+                      </>
+                    )}
                     <span className={`lane-state-badge ${badgeClass}`}>{badgeText}</span>
                   </div>
                 </div>
 
-                {/* Video Viewport: Clean Upload-Only Placeholder or Active Video */}
+                {/* Hidden File Input for this specific lane */}
+                <input
+                  ref={(el) => (fileInputRefs.current[laneNumber] = el)}
+                  type="file"
+                  accept="video/*,.mp4,.avi,.mov,.mkv,.webm"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      handleFileSelect(laneNumber, e.target.files[0], stagedAmbulance[laneNumber]);
+                    }
+                  }}
+                />
+
+                {/* Video Viewport: Clean Standby Upload Placeholder OR Active Stream */}
                 <div
                   className="video-viewport"
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => {
                     e.preventDefault();
                     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                      handleFileSelect(laneNumber, e.dataTransfer.files[0]);
+                      handleFileSelect(laneNumber, e.dataTransfer.files[0], stagedAmbulance[laneNumber]);
                     }
                   }}
                 >
@@ -858,11 +846,11 @@ export default function LiveJunction() {
                   )}
 
                   {!hasVideo ? (
-                    /* CLEAN EMPTY VIEWPORT PLACEHOLDER */
+                    /* STANDBY VIEWPORT DROPZONE & PC BROWSE */
                     <div
                       className="viewport-empty-placeholder"
                       onClick={() => fileInputRefs.current[laneNumber]?.click()}
-                      title="Click or drag a video file from your computer to start detection"
+                      title={`Click or drop a video file from your computer for Lane ${laneNumber}`}
                     >
                       <div className="placeholder-icon-circle">
                         <svg className="icon icon-lg" viewBox="0 0 24 24">
@@ -870,20 +858,41 @@ export default function LiveJunction() {
                           <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
                         </svg>
                       </div>
-                      <div className="placeholder-title">No Video Feed Loaded</div>
+                      <div className="placeholder-title">Lane {laneNumber} Feed Standby</div>
                       <div className="placeholder-desc">
-                        Drag & drop any traffic video from your PC folder or click below to upload.
+                        Drag & drop traffic video from PC or click to browse
                       </div>
-                      <button className="placeholder-browse-btn" onClick={(e) => {
-                        e.stopPropagation();
-                        fileInputRefs.current[laneNumber]?.click();
-                      }}>
+                      <button
+                        className="placeholder-browse-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          fileInputRefs.current[laneNumber]?.click();
+                        }}
+                      >
                         📁 Choose Video File from PC
                       </button>
+
+                      {/* Manual Ambulance / Emergency Flag Toggle */}
+                      <div
+                        className="placeholder-amb-toggle"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <label className="ambulance-checkbox-row">
+                          <input
+                            type="checkbox"
+                            checked={stagedAmbulance[laneNumber] || false}
+                            onChange={(e) =>
+                              setStagedAmbulance((prev) => ({ ...prev, [laneNumber]: e.target.checked }))
+                            }
+                          />
+                          <span>🚑 Video Contains Emergency Vehicle</span>
+                        </label>
+                      </div>
+
                       <span className="placeholder-hint">Supports MP4, AVI, MOV, MKV, WEBM</span>
                     </div>
                   ) : (
-                    /* ACTIVE VIDEO STREAM & DETECTIONS */
+                    /* ACTIVE VIDEO STREAM & YOLOV8 DETECTIONS */
                     <>
                       <video
                         ref={(el) => {
@@ -973,7 +982,7 @@ export default function LiveJunction() {
                             )}
                           </>
                         ) : (
-                          '-- (Awaiting Video Feed)'
+                          '-- (Standby)'
                         )}
                       </span>
                     </div>
@@ -1025,7 +1034,7 @@ export default function LiveJunction() {
                   <span className="font-mono text-yellow" style={{ fontSize: '0.7rem' }}>
                     {!hasVideo
                       ? 'No Feed'
-                      : laneNumber === 1 && (emergencyOverride || lane.is_ambulance_detected)
+                      : isThisLaneEmergency
                       ? 'EMERGENCY OVERRIDE (60s)'
                       : `Dynamic Green: ${allocatedGreen}s`}
                   </span>
