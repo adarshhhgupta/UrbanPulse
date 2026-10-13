@@ -2,8 +2,8 @@
 UrbanPulse - Flexible Video Processing & Dynamic Signal Optimization Engine
 Processes any arbitrary video uploaded from the user's PC for any lane:
 - Runs official Ultralytics YOLOv8 inference across sampled video frames
-- Accurately classifies traffic entities: car, bus, truck, bike, pedestrian, ambulance
-- Detects emergency vehicles via explicit emergency classes or manual/filename flags
+- Dedicated multi-class pipeline: accurately classifies car, bus, truck, bike, pedestrian
+- Integrated specialized neural ambulance detector: independently distinguishes ambulances from trucks/cars
 - Computes PCU-based density and vehicle queue accumulation
 - Calculates demand-responsive green signal timings
 - Synchronizes time-indexed bounding box tracks for video playback
@@ -13,9 +13,10 @@ import os
 import json
 import shutil
 import logging
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple, Set
 from datetime import datetime, timezone
 import cv2
+import numpy as np
 
 try:
     from ultralytics import YOLO
@@ -50,14 +51,17 @@ PCU_WEIGHTS = {
 
 MAX_LANE_PCU_CAPACITY = 28.0
 
-# Singleton YOLO model instance
-_YOLO_MODEL = None
+# Singleton YOLO model instances
+_TRAFFIC_MODEL = None
+_AMBULANCE_MODEL = None
+_OIV7_MODEL = None
+_OIV7_EMERGENCY_IDS: Optional[Set[int]] = None
 
 
-def get_yolo_model():
-    """Returns singleton YOLOv8 model instance using official pretrained weights."""
-    global _YOLO_MODEL
-    if _YOLO_MODEL is None and HAS_YOLO:
+def get_traffic_model():
+    """Returns singleton YOLOv8 model instance for general traffic perception."""
+    global _TRAFFIC_MODEL
+    if _TRAFFIC_MODEL is None and HAS_YOLO:
         candidates = [
             os.path.join(ROOT_DIR, "yolov8s.pt"),
             os.path.join(BACKEND_DIR, "yolov8s.pt"),
@@ -69,12 +73,67 @@ def get_yolo_model():
         for p in candidates:
             if os.path.exists(p) or p in ["yolov8s.pt", "yolov8n.pt"]:
                 try:
-                    logger.info(f"Loading YOLOv8 model from {p}...")
-                    _YOLO_MODEL = YOLO(p)
+                    logger.info(f"Loading YOLOv8 traffic model from {p}...")
+                    _TRAFFIC_MODEL = YOLO(p)
                     break
                 except Exception as e:
-                    logger.warning(f"Failed loading model from {p}: {e}")
-    return _YOLO_MODEL
+                    logger.warning(f"Failed loading traffic model from {p}: {e}")
+    return _TRAFFIC_MODEL
+
+
+def get_oiv7_model():
+    """Returns singleton Open Images v7 YOLOv8 model (contains native Ambulance & Fire engine classes)."""
+    global _OIV7_MODEL
+    if _OIV7_MODEL is None and HAS_YOLO:
+        candidates = [
+            os.path.join(ROOT_DIR, "yolov8n-oiv7.pt"),
+            os.path.join(BACKEND_DIR, "yolov8n-oiv7.pt"),
+            "yolov8n-oiv7.pt"
+        ]
+        for p in candidates:
+            if os.path.exists(p):
+                try:
+                    logger.info(f"Loading Open Images v7 multi-class model from {p}...")
+                    _OIV7_MODEL = YOLO(p)
+                    break
+                except Exception as e:
+                    logger.warning(f"Failed loading OIV7 model from {p}: {e}")
+    return _OIV7_MODEL
+
+
+def get_oiv7_emergency_classes(model) -> Set[int]:
+    """Dynamically caches class IDs for emergency vehicles in Open Images v7."""
+    global _OIV7_EMERGENCY_IDS
+    if _OIV7_EMERGENCY_IDS is None and model is not None:
+        emergency_set = set()
+        for cls_id, name in model.names.items():
+            n = str(name).lower()
+            if any(term in n for term in ["ambulance", "emergency", "fire engine", "fire truck", "police car"]):
+                emergency_set.add(int(cls_id))
+        _OIV7_EMERGENCY_IDS = emergency_set
+        logger.info(f"Mapped {len(_OIV7_EMERGENCY_IDS)} emergency class indices in Open Images v7")
+    return _OIV7_EMERGENCY_IDS or set()
+
+
+def get_ambulance_model():
+    """Returns singleton specialized YOLOv8 model instance for ambulance recognition."""
+    global _AMBULANCE_MODEL
+    if _AMBULANCE_MODEL is None and HAS_YOLO:
+        candidates = [
+            os.path.join(ROOT_DIR, "ambulance_model.pt"),
+            os.path.join(BACKEND_DIR, "ambulance_model.pt"),
+            "ambulance_model.pt"
+        ]
+        for p in candidates:
+            if os.path.exists(p):
+                try:
+                    logger.info(f"Loading dedicated ambulance model from {p}...")
+                    _AMBULANCE_MODEL = YOLO(p)
+                    logger.info(f"Ambulance model loaded. Classes: {_AMBULANCE_MODEL.names}")
+                    break
+                except Exception as e:
+                    logger.warning(f"Failed loading ambulance model from {p}: {e}")
+    return _AMBULANCE_MODEL
 
 
 def calculate_overlap(b1: Dict[str, float], b2: Dict[str, float]):
@@ -97,21 +156,56 @@ def calculate_overlap(b1: Dict[str, float], b2: Dict[str, float]):
     return iou, mcont
 
 
-def apply_flexible_nms(candidates: List[Dict[str, Any]], iou_thresh: float = 0.35, cont_thresh: float = 0.50):
-    """Filters duplicate overlapping bounding boxes on any arbitrary camera view."""
-    sorted_boxes = sorted(candidates, key=lambda d: d.get("bbox_w", 0) * d.get("bbox_h", 0), reverse=True)
+def apply_flexible_nms(candidates: List[Dict[str, Any]], iou_thresh: float = 0.40, cont_thresh: float = 0.55):
+    """
+    Confidence-ranked Non-Maximum Suppression (NMS):
+    1. Sorts candidate bounding boxes by confidence score descending
+    2. Suppresses false pedestrian detections on vehicle riders (motorcycles/bikes) or occupants
+    3. Filters duplicate overlapping boxes while preserving authentic vehicle class categories
+    """
+    if not candidates:
+        return []
+
+    # Sort strictly by confidence score descending (true computer vision NMS)
+    sorted_boxes = sorted(candidates, key=lambda d: d.get("confidence_score", 0.0), reverse=True)
     clean = []
+
     for d in sorted_boxes:
         discard = False
         for k in clean:
             iou, mcont = calculate_overlap(d, k)
+
+            # Suppress false pedestrian if overlapping with a vehicle (rider on motorcycle or occupant in car)
+            if d.get("vehicle_class") == "pedestrian" and k.get("vehicle_class") != "pedestrian":
+                if iou > 0.15 or mcont > 0.35:
+                    discard = True
+                    break
+
+            # Standard duplicate suppression between overlapping boxes
             if iou > iou_thresh or mcont > cont_thresh:
                 discard = True
                 break
+
         if not discard:
             clean.append(d)
-    clean.sort(key=lambda d: d["bbox_x"])
-    return clean
+
+    # Secondary sweep: guarantee no pedestrian box resides on or inside a vehicle
+    final_list = []
+    for d in clean:
+        if d.get("vehicle_class") == "pedestrian":
+            is_rider_or_occupant = False
+            for v in clean:
+                if v.get("vehicle_class") != "pedestrian":
+                    iou, mcont = calculate_overlap(d, v)
+                    if iou > 0.15 or mcont > 0.35:
+                        is_rider_or_occupant = True
+                        break
+            if is_rider_or_occupant:
+                continue
+        final_list.append(d)
+
+    final_list.sort(key=lambda d: d["bbox_x"])
+    return final_list
 
 
 def calculate_dynamic_signal_time(queue_count: int, density_pct: float, has_ambulance: bool) -> float:
@@ -138,8 +232,8 @@ def process_uploaded_video(
     """
     Processes an arbitrary video file uploaded from user's PC for any lane:
     1. Reads video metadata via OpenCV
-    2. Runs general-purpose YOLOv8 inference on sampled frames
-    3. Detects true vehicle classes: car, bus, truck, bike, pedestrian, ambulance
+    2. Runs generalized YOLOv8 inference for car, bus, truck, bike, pedestrian
+    3. Runs specialized ambulance detection to distinguish ambulances from trucks/vans
     4. Computes PCU density and dynamic green duration
     5. Stores synchronized time-step detections for smooth UI bounding box replay
     """
@@ -158,15 +252,18 @@ def process_uploaded_video(
 
     logger.info(f"[Lane {lane_id}] Ingesting '{original_filename}': {total_frames} frames, {duration}s, {width}x{height} @ {fps:.1f} FPS")
 
-    model = get_yolo_model()
-    is_emergency_file = manual_ambulance or ("ambulance" in original_filename.lower()) or ("emergency" in original_filename.lower())
+    traffic_model = get_traffic_model()
+    oiv7_model = get_oiv7_model()
+    oiv7_emerg_ids = get_oiv7_emergency_classes(oiv7_model) if oiv7_model else set()
+
+    is_emergency_file = bool(manual_ambulance)
 
     time_steps = []
     t = 0.0
     sampled_count = 0
     all_seen_classes = {}
     peak_queue = 0
-    ambulance_verified = is_emergency_file
+    ambulance_verified = False
 
     # Dynamically scale sampling interval to span the full video duration evenly
     if duration > 0 and max_frames_to_sample > 0:
@@ -181,15 +278,15 @@ def process_uploaded_video(
         if not ret:
             break
 
-        step_detections = []
+        raw_candidates = []
 
-        if model:
-            results = model.predict(source=frame, conf=0.22, verbose=False)[0]
-            raw_candidates = []
+        # 1. Run Official YOLOv8 Multi-Class Traffic Detection (car, truck, bus, bike, pedestrian)
+        if traffic_model:
+            results = traffic_model.predict(source=frame, conf=0.28, verbose=False)[0]
 
             for box in results.boxes:
                 cls_id = int(box.cls[0])
-                raw_name = model.names.get(cls_id, "car")
+                raw_name = traffic_model.names.get(cls_id, "car")
                 conf = float(box.conf[0])
                 xywhn = box.xywhn[0].tolist()
 
@@ -214,11 +311,10 @@ def process_uploaded_video(
                     v_class = "truck"
                 elif raw_name == "car":
                     v_class = "car"
-                elif "ambulance" in raw_name or "emergency" in raw_name:
+                elif "ambulance" in raw_name:
                     v_class = "ambulance"
                     ambulance_verified = True
                 else:
-                    # Ignore non-traffic classes (e.g., bench, bird, handbag)
                     continue
 
                 raw_candidates.append({
@@ -230,31 +326,61 @@ def process_uploaded_video(
                     "bbox_h": round(box_h, 3)
                 })
 
-            # Apply flexible non-maximum suppression
-            step_detections = apply_flexible_nms(raw_candidates)
+        # 2. Check Open Images v7 Multi-Class Model for Verified Ambulances (Class 6: Ambulance)
+        if oiv7_model and oiv7_emerg_ids:
+            try:
+                oiv7_results = oiv7_model.predict(source=frame, conf=0.45, verbose=False)[0]
+                for box in oiv7_results.boxes:
+                    cls_id = int(box.cls[0])
+                    if cls_id in oiv7_emerg_ids:
+                        conf = float(box.conf[0])
+                        xywhn = box.xywhn[0].tolist()
+                        top_x = max(0.0, min(1.0, xywhn[0] - xywhn[2] / 2))
+                        top_y = max(0.0, min(1.0, xywhn[1] - xywhn[3] / 2))
+                        box_w = min(1.0 - top_x, xywhn[2])
+                        box_h = min(1.0 - top_y, xywhn[3])
 
-            # If emergency video or manual flag, designate primary vehicle as ambulance
-            if is_emergency_file and step_detections:
-                amb_assigned = False
-                best_candidate = None
-                max_score = -1.0
-                for d in step_detections:
-                    if d["vehicle_class"] in ["car", "bus", "truck"]:
-                        score = (d["bbox_w"] * d["bbox_h"]) * d["confidence_score"]
-                        if score > max_score:
-                            max_score = score
-                            best_candidate = d
+                        amb_box = {
+                            "bbox_x": round(top_x, 3),
+                            "bbox_y": round(top_y, 3),
+                            "bbox_w": round(box_w, 3),
+                            "bbox_h": round(box_h, 3)
+                        }
 
-                if best_candidate:
-                    best_candidate["vehicle_class"] = "ambulance"
-                    best_candidate["confidence_score"] = 0.98
-                    amb_assigned = True
-                    ambulance_verified = True
+                        matched = False
+                        for cand in raw_candidates:
+                            iou, mcont = calculate_overlap(cand, amb_box)
+                            if iou > 0.40 or mcont > 0.50:
+                                cand["vehicle_class"] = "ambulance"
+                                cand["confidence_score"] = round(conf, 2)
+                                matched = True
+                                ambulance_verified = True
+                                break
 
-                if not amb_assigned and step_detections:
-                    step_detections[0]["vehicle_class"] = "ambulance"
-                    step_detections[0]["confidence_score"] = 0.98
-                    ambulance_verified = True
+                        if not matched and conf >= 0.50:
+                            raw_candidates.append({
+                                "vehicle_class": "ambulance",
+                                "confidence_score": round(conf, 2),
+                                "bbox_x": amb_box["bbox_x"],
+                                "bbox_y": amb_box["bbox_y"],
+                                "bbox_w": amb_box["bbox_w"],
+                                "bbox_h": amb_box["bbox_h"]
+                            })
+                            ambulance_verified = True
+            except Exception as e:
+                logger.warning(f"OIV7 emergency prediction failed: {e}")
+
+        # Apply confidence-ranked non-maximum suppression (filters rider/occupant false pedestrians)
+        step_detections = apply_flexible_nms(raw_candidates)
+
+        # Handle explicit manual ambulance priority override requested by user
+        if is_emergency_file and step_detections:
+            ambulance_verified = True
+            if not any(d["vehicle_class"] == "ambulance" for d in step_detections):
+                # Designate the largest visible vehicle as the prioritized ambulance
+                best = max(step_detections, key=lambda d: d["bbox_w"] * d["bbox_h"])
+                best["vehicle_class"] = "ambulance"
+                best["confidence_score"] = 0.98
 
         # Tally counts for this frame
         veh_count = sum(1 for d in step_detections if d["vehicle_class"] != "pedestrian")
@@ -275,21 +401,10 @@ def process_uploaded_video(
 
     cap.release()
 
-    # Guarantee emergency vehicle representation across time steps if flagged
-    if is_emergency_file:
-        ambulance_verified = True
+    # Guarantee emergency vehicle representation if verified
+    if ambulance_verified:
         if not all_seen_classes.get("ambulance"):
             all_seen_classes["ambulance"] = 1
-        for step in time_steps:
-            if not any(d["vehicle_class"] == "ambulance" for d in step["detections"]):
-                step["detections"].insert(0, {
-                    "vehicle_class": "ambulance",
-                    "confidence_score": 0.98,
-                    "bbox_x": 0.080,
-                    "bbox_y": 0.440,
-                    "bbox_w": 0.140,
-                    "bbox_h": 0.460
-                })
 
     if not time_steps:
         time_steps.append({"time": 0.0, "detections": []})
@@ -309,6 +424,11 @@ def process_uploaded_video(
         if scaled_count > 0:
             class_breakdown[vc] = scaled_count
             pcu_total += scaled_count * PCU_WEIGHTS.get(vc, 1.0)
+
+    # Guarantee ambulance representation in class breakdown if verified
+    if ambulance_verified and "ambulance" not in class_breakdown:
+        class_breakdown["ambulance"] = 1
+        pcu_total += PCU_WEIGHTS.get("ambulance", 1.2)
 
     # Ensure baseline representation if video had detections
     if not class_breakdown and time_steps and time_steps[0]["detections"]:

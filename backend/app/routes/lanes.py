@@ -42,13 +42,19 @@ def _update_lane_and_arbitrate(lane_id: int, result: dict, db: Session):
     # Clear prior detections for this lane
     db.query(Detection).filter(Detection.lane_id == lane_id).delete()
 
-    # Find representative detection step
+    # Find representative detection step (prioritizing emergency vehicle frames if detected)
     rep_detections = []
     if result.get("steps"):
-        for step in result["steps"]:
-            if step.get("detections"):
-                rep_detections = step["detections"]
-                break
+        if result.get("is_ambulance_detected"):
+            for step in result["steps"]:
+                if any(d.get("vehicle_class") == "ambulance" for d in step.get("detections", [])):
+                    rep_detections = step["detections"]
+                    break
+        if not rep_detections:
+            for step in result["steps"]:
+                if step.get("detections"):
+                    rep_detections = step["detections"]
+                    break
 
     for d in rep_detections:
         db.add(Detection(
@@ -231,7 +237,7 @@ async def upload_all_videos(
                 with open(frontend_dst, "wb") as f:
                     f.write(content)
 
-                is_amb = (ambulance_lane == lane_num) or ("ambulance" in f_upload.filename.lower())
+                is_amb = bool(ambulance_lane == lane_num)
                 if is_amb:
                     shutil.copy2(backend_dst, os.path.join(BACKEND_VIDEOS_DIR, "ambulancevid.mp4"))
                     shutil.copy2(backend_dst, os.path.join(FRONTEND_VIDEOS_DIR, "ambulancevid.mp4"))
@@ -430,8 +436,8 @@ async def upload_video_for_lane(
         with open(frontend_dst, "wb") as f:
             f.write(content)
 
-        # If ambulance flag or filename indicates emergency, mirror to ambulancevid.mp4
-        if manual_ambulance or "ambulance" in file.filename.lower() or "emergency" in file.filename.lower():
+        # If ambulance flag indicates emergency, mirror to ambulancevid.mp4
+        if manual_ambulance:
             shutil.copy2(backend_dst, os.path.join(BACKEND_VIDEOS_DIR, "ambulancevid.mp4"))
             shutil.copy2(backend_dst, os.path.join(FRONTEND_VIDEOS_DIR, "ambulancevid.mp4"))
     except Exception as e:
