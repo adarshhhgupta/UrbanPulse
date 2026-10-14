@@ -71,6 +71,15 @@ export default function LiveJunction() {
     const fetchInitialLanes = async () => {
       try {
         setLoading(true);
+
+        // Preload synchronized video detection tracks immediately on page load
+        fetch(`/videos/detections_data.json?t=${Date.now()}`)
+          .then((r) => r.ok ? r.json() : null)
+          .then((data) => {
+            if (data) setVideoTracks(data);
+          })
+          .catch(() => {});
+
         const res = await fetch('/api/lanes').catch(() => fetch('http://localhost:8001/api/lanes'));
         if (res.ok) {
           const data = await res.json();
@@ -174,19 +183,19 @@ export default function LiveJunction() {
     }
   };
 
-  // Video play/pause synchronization
+  // Video playback: ensure all active video feeds play continuously so vehicle detections track live
   useEffect(() => {
     [1, 2, 3, 4].forEach((laneNum) => {
       const vid = videoRefs.current[laneNum];
       if (!vid) return;
 
-      if (laneNum === effectiveGreenLane && customVideoSources[laneNum]) {
+      if (customVideoSources[laneNum] && isCycleRunning) {
         vid.play().catch(() => {});
       } else {
         vid.pause();
       }
     });
-  }, [effectiveGreenLane, isCycleRunning, customVideoSources]);
+  }, [customVideoSources, isCycleRunning]);
 
   // Automated Signal Countdown Sequencer (Active only when videos exist)
   useEffect(() => {
@@ -221,7 +230,7 @@ export default function LiveJunction() {
     setCustomVideoSources((prev) => ({ ...prev, [laneNumber]: localBlobUrl }));
     setCustomVideoNames((prev) => ({ ...prev, [laneNumber]: file.name }));
 
-    const isAmb = manualAmb || stagedAmbulance[laneNumber] || file.name.toLowerCase().includes('ambulance') || file.name.toLowerCase().includes('emergency');
+    const isAmb = Boolean(manualAmb || stagedAmbulance[laneNumber]);
     if (isAmb) {
       setStagedAmbulance((prev) => ({ ...prev, [laneNumber]: true }));
     }
@@ -898,17 +907,22 @@ export default function LiveJunction() {
                         ref={(el) => {
                           if (el) {
                             videoRefs.current[laneNumber] = el;
-                            if (laneNumber === effectiveGreenLane) {
+                            if (isCycleRunning) {
                               el.play().catch(() => {});
-                            } else {
-                              el.pause();
                             }
                           }
                         }}
                         src={videoSrc}
+                        autoPlay
                         loop
                         muted
                         playsInline
+                        onLoadedMetadata={(e) => {
+                          if (isCycleRunning) e.target.play().catch(() => {});
+                        }}
+                        onCanPlay={(e) => {
+                          if (isCycleRunning) e.target.play().catch(() => {});
+                        }}
                         onTimeUpdate={(e) => handleTimeUpdate(laneNumber, e)}
                         className="lane-video-element"
                       />
@@ -919,7 +933,7 @@ export default function LiveJunction() {
                         <span>
                           {isGreen
                             ? `GREEN FLOW (${secondsRemaining}s / ${allocatedGreen}s)`
-                            : 'RED SIGNAL • PAUSED'}
+                            : `RED SIGNAL • HOLDING (${allocatedGreen}s)`}
                         </span>
                       </div>
 
