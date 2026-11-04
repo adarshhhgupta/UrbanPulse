@@ -8,6 +8,7 @@ const EVAL_BARS = [
 ];
 
 export default function Evaluation() {
+  const API_BASE = import.meta.env.VITE_API_URL || '';
   const [metrics, setMetrics] = useState({
     detection_map_05: 91.3,
     prediction_rmse_lstm: 3.2,
@@ -18,7 +19,7 @@ export default function Evaluation() {
   });
 
   useEffect(() => {
-    fetch('/api/evaluation')
+    fetch(`${API_BASE}/api/evaluation`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data) setMetrics(data);

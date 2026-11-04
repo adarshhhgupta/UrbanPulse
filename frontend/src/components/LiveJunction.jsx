@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 export default function LiveJunction({ isDedicated = false }) {
+  const API_BASE = import.meta.env.VITE_API_URL || '';
   const [lanes, setLanes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [emergencyOverride, setEmergencyOverride] = useState(false);
@@ -77,7 +78,7 @@ export default function LiveJunction({ isDedicated = false }) {
           })
           .catch(() => { });
 
-        const res = await fetch('/api/lanes').catch(() => fetch('http://localhost:8001/api/lanes'));
+        const res = await fetch(`${API_BASE}/api/lanes`).catch(() => fetch('http://localhost:8001/api/lanes'));
         if (res.ok) {
           const data = await res.json();
           setLanes(data);
@@ -110,7 +111,7 @@ export default function LiveJunction({ isDedicated = false }) {
     const connectWebSocket = () => {
       try {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws/lanes`;
+        const wsUrl = import.meta.env.VITE_WS_URL || `${protocol}//${window.location.host}/ws/lanes`;
         ws = new WebSocket(wsUrl);
         ws.onopen = () => setWsConnected(true);
         ws.onmessage = (event) => {
@@ -244,7 +245,7 @@ export default function LiveJunction({ isDedicated = false }) {
     formData.append('manual_ambulance', isAmb ? 'true' : 'false');
 
     try {
-      const res = await fetch(`/api/lanes/${laneNumber}/upload-video`, {
+      const res = await fetch(`${API_BASE}/api/lanes/${laneNumber}/upload-video`, {
         method: 'POST',
         body: formData
       });
@@ -333,7 +334,7 @@ export default function LiveJunction({ isDedicated = false }) {
     if (ambLane) formData.append('ambulance_lane', ambLane);
 
     try {
-      const res = await fetch('/api/lanes/upload-all-videos', {
+      const res = await fetch(`${API_BASE}/api/lanes/upload-all-videos`, {
         method: 'POST',
         body: formData
       });
@@ -391,13 +392,13 @@ export default function LiveJunction({ isDedicated = false }) {
     setSecondsRemaining(20);
 
     try {
-      await fetch('/api/lanes/reset-defaults', { method: 'POST' }).catch(() => { });
+      await fetch(`${API_BASE}/api/lanes/reset-defaults`, { method: 'POST' }).catch(() => { });
       const res = await fetch(`/videos/detections_data.json?t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         setVideoTracks(data);
       }
-      const planRes = await fetch('/api/lanes/signal-plan');
+      const planRes = await fetch(`${API_BASE}/api/lanes/signal-plan`);
       if (planRes.ok) {
         const plan = await planRes.json();
         if (plan.lane_timings) setLaneTimings(plan.lane_timings);
@@ -405,7 +406,7 @@ export default function LiveJunction({ isDedicated = false }) {
           setEmergencyOverride(true);
         }
       }
-      const lanesRes = await fetch('/api/lanes');
+      const lanesRes = await fetch(`${API_BASE}/api/lanes`);
       if (lanesRes.ok) {
         const lData = await lanesRes.json();
         setLanes(lData);
@@ -432,7 +433,7 @@ export default function LiveJunction({ isDedicated = false }) {
     setSecondsRemaining(20);
 
     try {
-      await fetch('/api/lanes/clear-all', { method: 'POST' }).catch(() =>
+      await fetch(`${API_BASE}/api/lanes/clear-all`, { method: 'POST' }).catch(() =>
         fetch('http://localhost:8001/api/lanes/clear-all', { method: 'POST' })
       );
     } catch (e) {
@@ -459,7 +460,7 @@ export default function LiveJunction({ isDedicated = false }) {
       const currentDur = sequencerMode === 'adaptive' ? (laneTimings[activeLane] || 20) : phaseDuration;
       setSecondsRemaining(Math.round(currentDur));
       setLanes((prev) => prev.map((l) => ({ ...l, is_ambulance_detected: false })));
-      fetch('/api/lanes/cancel-ambulance', { method: 'POST' }).catch(() => { });
+      fetch(`${API_BASE}/api/lanes/cancel-ambulance`, { method: 'POST' }).catch(() => { });
       setFeedbackMessage('Emergency override cleared. Standard junction cycle restored.');
       setFeedbackType('info');
     } else {
@@ -484,7 +485,7 @@ export default function LiveJunction({ isDedicated = false }) {
       }
       setStagedAmbulance({ 1: false, 2: false, 3: false, 4: false, [laneToTrigger]: true });
 
-      fetch(`/api/lanes/${laneToTrigger}/trigger-ambulance`, { method: 'POST' })
+      fetch(`${API_BASE}/api/lanes/${laneToTrigger}/trigger-ambulance`, { method: 'POST' })
         .then((r) => (r.ok ? r.json() : null))
         .then((data) => {
           if (data && data.decision && data.decision.lane_timings) {

@@ -10,13 +10,14 @@ const FALLBACK_VIOLATIONS = [
 ];
 
 export default function Violations() {
+  const API_BASE = import.meta.env.VITE_API_URL || '';
   const [violations, setViolations] = useState(FALLBACK_VIOLATIONS);
   const [loading, setLoading] = useState(true);
 
   const fetchViolations = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/violations').catch(() => fetch('http://localhost:8001/api/violations'));
+      const res = await fetch(`${API_BASE}/api/violations`).catch(() => fetch('http://localhost:8001/api/violations'));
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
