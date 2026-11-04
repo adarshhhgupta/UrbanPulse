@@ -46,10 +46,12 @@ def _update_lane_and_arbitrate(lane_id: int, result: dict, db: Session):
     rep_detections = []
     if result.get("steps"):
         if result.get("is_ambulance_detected"):
+            best_amb_count = 0
             for step in result["steps"]:
-                if any(d.get("vehicle_class") == "ambulance" for d in step.get("detections", [])):
+                cnt = sum(1 for d in step.get("detections", []) if d.get("vehicle_class") == "ambulance")
+                if cnt > best_amb_count:
+                    best_amb_count = cnt
                     rep_detections = step["detections"]
-                    break
         if not rep_detections:
             for step in result["steps"]:
                 if step.get("detections"):
@@ -385,6 +387,127 @@ async def reset_to_reference_defaults(db: Session = Depends(get_db)):
         pass
 
     return {"success": True, "message": "Reset to reference scenario complete."}
+
+
+@router.post("/lanes/cancel-ambulance")
+async def cancel_ambulance_override(db: Session = Depends(get_db)):
+    """Cancels ambulance emergency override across all lanes and restores standard traffic arbitration."""
+    all_lanes = db.query(Lane).order_by(Lane.lane_number).all()
+    for l in all_lanes:
+        l.is_ambulance_detected = False
+        l.last_updated = datetime.utcnow()
+    db.commit()
+
+    lanes_summary = [
+        {
+            "id": l.id,
+            "lane_number": l.lane_number,
+            "density_percent": l.density_percent,
+            "queue_count": l.queue_count,
+            "is_ambulance_detected": False,
+            "forecast_surge_percent": 23.0 if l.lane_number == 4 else 0.0
+        }
+        for l in all_lanes
+    ]
+    decision = arbitrate_junction_state(lanes_summary)
+    for l in all_lanes:
+        l.current_state = decision["signal_states"].get(l.id, "red")
+
+    d_log = DecisionLog(
+        lane_id=decision["active_lane_id"],
+        rule_triggered=decision["rule_triggered"],
+        action_taken="Emergency ambulance override cancelled. Normal adaptive arbitration resumed.",
+        timestamp=datetime.utcnow()
+    )
+    db.add(d_log)
+    db.commit()
+
+    try:
+        await _broadcast_ws_telemetry(db)
+    except Exception:
+        pass
+
+    return {
+        "success": True,
+        "decision": decision,
+        "message": "Emergency cancelled. Normal traffic signal arbitration resumed."
+    }
+
+
+@router.post("/lanes/{lane_id:int}/trigger-ambulance")
+async def trigger_ambulance_for_lane(lane_id: int, db: Session = Depends(get_db)):
+    """
+    Instantly detects / forces an emergency ambulance override on any requested lane (1-4).
+    Forces target lane to GREEN (60s), sets all opposing lanes to RED, and broadcasts telemetry.
+    """
+    all_lanes = db.query(Lane).order_by(Lane.lane_number).all()
+    target_lane = None
+    for l in all_lanes:
+        if l.lane_number == lane_id or l.id == lane_id:
+            target_lane = l
+            l.is_ambulance_detected = True
+            l.current_state = "green"
+            l.last_updated = datetime.utcnow()
+        else:
+            l.is_ambulance_detected = False
+            l.current_state = "red"
+            l.last_updated = datetime.utcnow()
+
+    if not target_lane:
+        raise HTTPException(status_code=404, detail=f"Lane {lane_id} not found")
+
+    # Ensure an ambulance visual detection exists in database for this lane
+    amb_det = db.query(Detection).filter(Detection.lane_id == target_lane.id, Detection.vehicle_class == "ambulance").first()
+    if not amb_det:
+        db.add(Detection(
+            lane_id=target_lane.id,
+            vehicle_class="ambulance",
+            confidence_score=0.98,
+            bbox_x=0.28,
+            bbox_y=0.22,
+            bbox_w=0.35,
+            bbox_h=0.50,
+            timestamp=datetime.utcnow()
+        ))
+    db.commit()
+
+    # Re-arbitrate junction
+    lanes_summary = [
+        {
+            "id": l.id,
+            "lane_number": l.lane_number,
+            "density_percent": l.density_percent,
+            "queue_count": l.queue_count,
+            "is_ambulance_detected": l.is_ambulance_detected,
+            "forecast_surge_percent": 23.0 if l.lane_number == 4 else 0.0
+        }
+        for l in all_lanes
+    ]
+    decision = arbitrate_junction_state(lanes_summary)
+    for l in all_lanes:
+        l.current_state = decision["signal_states"].get(l.id, "red")
+
+    d_log = DecisionLog(
+        lane_id=target_lane.id,
+        rule_triggered="emergency",
+        action_taken=decision["action_taken"],
+        timestamp=datetime.utcnow()
+    )
+    db.add(d_log)
+    db.commit()
+
+    try:
+        await _broadcast_ws_telemetry(db)
+    except Exception:
+        pass
+
+    return {
+        "success": True,
+        "lane_id": target_lane.id,
+        "lane_number": target_lane.lane_number,
+        "decision": decision,
+        "message": f"Ambulance emergency override actively engaged on Lane {target_lane.lane_number}!"
+    }
 
 
 # ============================================================================

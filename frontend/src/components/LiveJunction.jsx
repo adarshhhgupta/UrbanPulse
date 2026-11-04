@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-export default function LiveJunction() {
+export default function LiveJunction({ isDedicated = false }) {
   const [lanes, setLanes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [emergencyOverride, setEmergencyOverride] = useState(false);
   const [manualEmergency, setManualEmergency] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
@@ -13,13 +12,12 @@ export default function LiveJunction() {
   // Dynamic Signal Sequencing
   const [activeLane, setActiveLane] = useState(1); // 1, 2, 3, 4
   const [sequencerMode, setSequencerMode] = useState('adaptive'); // 'adaptive' | 'fixed'
-  const [phaseDuration, setPhaseDuration] = useState(5);
+  const [phaseDuration, setPhaseDuration] = useState(8);
   const [secondsRemaining, setSecondsRemaining] = useState(20);
   const [isCycleRunning, setIsCycleRunning] = useState(true);
   const [laneTimings, setLaneTimings] = useState({ 1: 20.0, 2: 25.0, 3: 15.0, 4: 20.0 });
-  const [priorityOrder, setPriorityOrder] = useState([1, 2, 4, 3]);
 
-  // Clean Upload-Only Feeds State (null initially until uploaded from PC)
+  // Video Feeds State (null initially until uploaded or demo loaded)
   const [customVideoSources, setCustomVideoSources] = useState({ 1: null, 2: null, 3: null, 4: null });
   const [customVideoNames, setCustomVideoNames] = useState({ 1: null, 2: null, 3: null, 4: null });
   const [uploadingLanes, setUploadingLanes] = useState({});
@@ -43,24 +41,24 @@ export default function LiveJunction() {
     4: 'Westbound'
   };
 
-  // Check if at least one lane has an active video feed
   const hasAnyActiveVideo = Object.values(customVideoSources).some((src) => src !== null);
   const activeFeedsCount = Object.values(customVideoSources).filter(Boolean).length;
 
-  // Refs for tracking async websocket callbacks without stale closure
   const hasAnyActiveVideoRef = useRef(false);
   const manualEmergencyRef = useRef(false);
   hasAnyActiveVideoRef.current = hasAnyActiveVideo;
   manualEmergencyRef.current = manualEmergency;
 
-  // Dynamically identify which lane detected or flagged an emergency
+  const [emergencyLane, setEmergencyLane] = useState(3);
   const detectedAmbulanceLane = Number(
+    (manualEmergency ? emergencyLane : null) ||
     lanes.find((l) => l.is_ambulance_detected)?.lane_number ||
+    (videoTracks && Object.entries(videoTracks).find(([_, t]) => t && t.is_ambulance_detected)?.[0]) ||
     Object.entries(stagedAmbulance).find(([_, isAmb]) => isAmb)?.[0] ||
-    1
+    emergencyLane ||
+    3
   );
 
-  // Determine active green lane (locks to the emergency lane if override is engaged)
   const effectiveGreenLane = emergencyOverride ? detectedAmbulanceLane : activeLane;
 
   // Fetch telemetry on mount & establish WebSocket stream
@@ -72,19 +70,17 @@ export default function LiveJunction() {
       try {
         setLoading(true);
 
-        // Preload synchronized video detection tracks immediately on page load
         fetch(`/videos/detections_data.json?t=${Date.now()}`)
-          .then((r) => r.ok ? r.json() : null)
+          .then((r) => (r.ok ? r.json() : null))
           .then((data) => {
             if (data) setVideoTracks(data);
           })
-          .catch(() => {});
+          .catch(() => { });
 
         const res = await fetch('/api/lanes').catch(() => fetch('http://localhost:8001/api/lanes'));
         if (res.ok) {
           const data = await res.json();
           setLanes(data);
-          // Only engage emergency if database explicitly has an active ambulance and we have videos
           const hasAmbInDb = data.some((l) => l.is_ambulance_detected);
           if (hasAmbInDb && hasAnyActiveVideoRef.current) {
             setEmergencyOverride(true);
@@ -123,11 +119,11 @@ export default function LiveJunction() {
             if (msg.lanes && Array.isArray(msg.lanes)) {
               setLanes(msg.lanes);
             }
-            // Only trigger emergency if active video feeds exist or manual emergency was requested
             if (msg.active_emergency) {
-              if (hasAnyActiveVideoRef.current || manualEmergencyRef.current) {
-                setEmergencyOverride(true);
+              if (msg.emergency_lane_id) {
+                setEmergencyLane(Number(msg.emergency_lane_id));
               }
+              setEmergencyOverride(true);
             } else if (!manualEmergencyRef.current) {
               setEmergencyOverride(false);
             }
@@ -183,21 +179,21 @@ export default function LiveJunction() {
     }
   };
 
-  // Video playback: ensure all active video feeds play continuously so vehicle detections track live
+  // Video playback: ensure all active video feeds play continuously when running
   useEffect(() => {
     [1, 2, 3, 4].forEach((laneNum) => {
       const vid = videoRefs.current[laneNum];
       if (!vid) return;
 
       if (customVideoSources[laneNum] && isCycleRunning) {
-        vid.play().catch(() => {});
+        vid.play().catch(() => { });
       } else {
         vid.pause();
       }
     });
   }, [customVideoSources, isCycleRunning]);
 
-  // Automated Signal Countdown Sequencer (Active only when videos exist)
+  // Automated Signal Countdown Sequencer (active when videos exist)
   useEffect(() => {
     if (emergencyOverride || !isCycleRunning || !hasAnyActiveVideo) return;
 
@@ -205,9 +201,9 @@ export default function LiveJunction() {
       setSecondsRemaining((prev) => {
         if (prev <= 1) {
           setActiveLane((curr) => {
-            let next = (curr % 4) + 1;
+            const next = (curr % 4) + 1;
             const nextDuration = sequencerMode === 'adaptive'
-              ? Math.round(laneTimings[next] || laneTimings[String(next)] || 18)
+              ? Math.round(laneTimings[next] || laneTimings[String(next)] || 20)
               : phaseDuration;
             setSecondsRemaining(nextDuration);
             return next;
@@ -221,11 +217,10 @@ export default function LiveJunction() {
     return () => clearInterval(timer);
   }, [emergencyOverride, isCycleRunning, sequencerMode, phaseDuration, laneTimings, hasAnyActiveVideo]);
 
-  // Direct video upload trigger from PC folder for a single lane
+  // Single file select for a lane
   const handleFileSelect = (laneNumber, file, manualAmb = false) => {
     if (!file) return;
 
-    // Create immediate local object URL for instant zero-latency playback
     const localBlobUrl = URL.createObjectURL(file);
     setCustomVideoSources((prev) => ({ ...prev, [laneNumber]: localBlobUrl }));
     setCustomVideoNames((prev) => ({ ...prev, [laneNumber]: file.name }));
@@ -236,13 +231,12 @@ export default function LiveJunction() {
     }
     setStagedFiles((prev) => ({ ...prev, [laneNumber]: file }));
 
-    // Trigger YOLOv8 inference upload
     uploadVideoToServer(laneNumber, file, isAmb);
   };
 
   const uploadVideoToServer = async (laneNumber, file, isAmb) => {
     setUploadingLanes((prev) => ({ ...prev, [laneNumber]: true }));
-    setFeedbackMessage(`⚡ Analyzing Lane ${laneNumber} video with YOLOv8 Neural Model...`);
+    setFeedbackMessage(`Analyzing Lane ${laneNumber} video with YOLOv8 neural model...`);
     setFeedbackType('info');
 
     const formData = new FormData();
@@ -273,7 +267,6 @@ export default function LiveJunction() {
         if (data.video_metrics.is_ambulance_detected) {
           setEmergencyOverride(true);
         } else {
-          // Check if any other lane still has an ambulance
           const anyOtherAmb = (data.all_lanes || []).some((l) => l.is_ambulance_detected && l.lane_number !== laneNumber);
           if (!anyOtherAmb && !manualEmergency) {
             setEmergencyOverride(false);
@@ -287,10 +280,10 @@ export default function LiveJunction() {
 
       const qCount = data.video_metrics?.queue_count ?? 0;
       const dPct = data.video_metrics?.density_percent ?? 0;
-      const gSec = data.video_metrics?.allocated_green_seconds ?? 15;
+      const gSec = data.video_metrics?.allocated_green_seconds ?? 20;
 
       setFeedbackMessage(
-        `✓ Lane ${laneNumber} Ingested: YOLOv8 detected ${qCount} vehicles (${dPct}% PCU). Dynamic Green: ${gSec}s.`
+        `Lane ${laneNumber} ingested: YOLOv8 detected ${qCount} vehicles (${dPct}% PCU). Dynamic green: ${gSec} s.`
       );
       setFeedbackType('success');
     } catch (err) {
@@ -302,13 +295,13 @@ export default function LiveJunction() {
     }
   };
 
-  // Batch upload up to 4 arbitrary videos selected simultaneously from PC folder
+  // Batch upload 1 to 4 videos
   const handleBatchFilesSelected = async (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
     setIsBatchProcessing(true);
-    setFeedbackMessage(`⚡ Ingesting ${files.length} videos from PC folder with YOLOv8 Neural Model...`);
+    setFeedbackMessage(`Ingesting ${files.length} videos from PC folder with YOLOv8...`);
     setFeedbackType('info');
 
     const newSources = { ...customVideoSources };
@@ -364,7 +357,7 @@ export default function LiveJunction() {
         setEmergencyOverride(false);
       }
 
-      setFeedbackMessage(`✓ Ingested ${files.length} lane video feeds! Dynamic signal timings arbitrated.`);
+      setFeedbackMessage(`Ingested ${files.length} lane video feeds. Dynamic signal timings arbitrated.`);
       setFeedbackType('success');
     } catch (err) {
       setFeedbackMessage(`Batch upload error: ${err.message}`);
@@ -376,9 +369,9 @@ export default function LiveJunction() {
     }
   };
 
-  // Load sample demo benchmark videos for 1-click test
+  // Load sample demo benchmark videos
   const handleLoadSampleDemos = async () => {
-    setFeedbackMessage('Loading 4 sample demo benchmark videos for demonstration...');
+    setFeedbackMessage('Loading benchmark demo videos...');
     setFeedbackType('info');
 
     setCustomVideoSources({
@@ -394,9 +387,11 @@ export default function LiveJunction() {
       4: 'demo_lane4_arterial.mp4'
     });
     setStagedAmbulance({ 1: true, 2: false, 3: false, 4: false });
+    setActiveLane(1);
+    setSecondsRemaining(20);
 
     try {
-      await fetch('/api/lanes/reset-defaults', { method: 'POST' }).catch(() => {});
+      await fetch('/api/lanes/reset-defaults', { method: 'POST' }).catch(() => { });
       const res = await fetch(`/videos/detections_data.json?t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
@@ -415,7 +410,7 @@ export default function LiveJunction() {
         const lData = await lanesRes.json();
         setLanes(lData);
       }
-      setFeedbackMessage('✓ 4 Benchmark demo videos loaded with calibrated detections.');
+      setFeedbackMessage('Benchmark demo videos loaded with calibrated detections.');
       setFeedbackType('success');
     } catch (e) {
       setFeedbackMessage('Demo benchmark videos loaded.');
@@ -424,7 +419,7 @@ export default function LiveJunction() {
     }
   };
 
-  // Clear all feeds back to clean standby state
+  // Clear all feeds
   const handleClearAllFeeds = async () => {
     setCustomVideoSources({ 1: null, 2: null, 3: null, 4: null });
     setCustomVideoNames({ 1: null, 2: null, 3: null, 4: null });
@@ -436,7 +431,6 @@ export default function LiveJunction() {
     setActiveLane(1);
     setSecondsRemaining(20);
 
-    // Call backend reset to clean standby
     try {
       await fetch('/api/lanes/clear-all', { method: 'POST' }).catch(() =>
         fetch('http://localhost:8001/api/lanes/clear-all', { method: 'POST' })
@@ -452,20 +446,57 @@ export default function LiveJunction() {
       { id: 4, lane_number: 4, current_state: 'red', density_percent: 0.0, queue_count: 0, is_ambulance_detected: false }
     ]);
 
-    setFeedbackMessage('✓ All feeds cleared. Standby mode active. Ready for new video uploads.');
+    setFeedbackMessage('All feeds cleared. Standby mode active. Ready for new video uploads.');
     setFeedbackType('success');
     setTimeout(() => setFeedbackMessage(null), 3000);
   };
 
-  const toggleEmergency = () => {
-    if (!emergencyOverride) {
+  const toggleEmergency = (targetLane = null) => {
+    const laneToTrigger = targetLane ? Number(targetLane) : detectedAmbulanceLane;
+    if (emergencyOverride && (!targetLane || targetLane === detectedAmbulanceLane)) {
+      setManualEmergency(false);
+      setEmergencyOverride(false);
+      const currentDur = sequencerMode === 'adaptive' ? (laneTimings[activeLane] || 20) : phaseDuration;
+      setSecondsRemaining(Math.round(currentDur));
+      setLanes((prev) => prev.map((l) => ({ ...l, is_ambulance_detected: false })));
+      fetch('/api/lanes/cancel-ambulance', { method: 'POST' }).catch(() => { });
+      setFeedbackMessage('Emergency override cleared. Standard junction cycle restored.');
+      setFeedbackType('info');
+    } else {
+      setEmergencyLane(laneToTrigger);
       setManualEmergency(true);
       setEmergencyOverride(true);
       setSecondsRemaining(60);
-    } else {
-      setManualEmergency(false);
-      setEmergencyOverride(false);
-      setSecondsRemaining(laneTimings[activeLane] || 20);
+      setActiveLane(laneToTrigger);
+      setLaneTimings((prev) => ({ ...prev, [laneToTrigger]: 60.0 }));
+
+      setLanes((prev) =>
+        prev.map((l) => ({
+          ...l,
+          is_ambulance_detected: l.lane_number === laneToTrigger,
+          current_state: l.lane_number === laneToTrigger ? 'green' : 'red'
+        }))
+      );
+
+      if (!customVideoSources[laneToTrigger]) {
+        setCustomVideoSources((prev) => ({ ...prev, [laneToTrigger]: '/videos/ambulancevid.mp4' }));
+        setCustomVideoNames((prev) => ({ ...prev, [laneToTrigger]: `emergency_ambulance_lane${laneToTrigger}.mp4` }));
+      }
+      setStagedAmbulance({ 1: false, 2: false, 3: false, 4: false, [laneToTrigger]: true });
+
+      fetch(`/api/lanes/${laneToTrigger}/trigger-ambulance`, { method: 'POST' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (data && data.decision && data.decision.lane_timings) {
+            setLaneTimings(data.decision.lane_timings);
+          }
+        })
+        .catch(() => { });
+
+      setFeedbackMessage(
+        `Emergency override engaged. Ambulance detected in Lane ${laneToTrigger} (${laneDirections[laneToTrigger]}). Next node Junction 7 pre-empted.`
+      );
+      setFeedbackType('success');
     }
   };
 
@@ -474,7 +505,7 @@ export default function LiveJunction() {
     setManualEmergency(false);
     setActiveLane(laneNum);
     const dur = sequencerMode === 'adaptive' ? (laneTimings[laneNum] || 20) : phaseDuration;
-    setSecondsRemaining(dur);
+    setSecondsRemaining(Math.round(dur));
   };
 
   const getBBoxClass = (cls) => {
@@ -499,565 +530,532 @@ export default function LiveJunction() {
     }
   };
 
+  // Junction Plan calculations
+  const order = [1, 2, 3, 4];
+  const totalCycle = order.reduce((acc, n) => {
+    const d = sequencerMode === 'adaptive' ? (laneTimings[n] || 20) : phaseDuration;
+    return acc + Math.round(d);
+  }, 0);
+
+  let accumulated = 0;
+  const slotData = order.map((n) => {
+    const d = sequencerMode === 'adaptive' ? (laneTimings[n] || 20) : phaseDuration;
+    const roundedD = Math.round(d);
+    const start = accumulated;
+    accumulated += roundedD;
+    return {
+      n,
+      duration: roundedD,
+      leftPct: totalCycle > 0 ? (start / totalCycle) * 100 : 0,
+      widthPct: totalCycle > 0 ? (roundedD / totalCycle) * 100 : 0
+    };
+  });
+
+  const getSigClass = (n) => {
+    if (!hasAnyActiveVideo) return '';
+    return n === effectiveGreenLane ? 'g' : 'r';
+  };
+
   return (
-    <section id="live-junction">
-      {/* Section Header */}
-      <div className="section-header">
-        <div className="section-tag">Edge Perception Studio & Demand-Responsive Signal Control</div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '1rem' }}>
-          <div>
-            <h2 className="section-title">
-              <svg className="icon text-green" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-              Live 4-Lane Junction Perception & Control
-            </h2>
-            <p className="section-desc">
-              Upload traffic videos directly into each lane viewport or batch ingest all 4 feeds. YOLOv8 runs real-time object detection across vehicles, computes dynamic PCU road density, and arbitrates green signal timings.
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <span className="font-mono" style={{ fontSize: '0.75rem', color: wsConnected ? 'var(--signal-green)' : 'var(--signal-yellow)' }}>
-              {wsConnected ? '● WS Live Stream' : '○ Standby Snapshot'}
-            </span>
-          </div>
+    <section id="live" style={{ paddingTop: isDedicated ? 0 : 12 }}>
+      {!isDedicated && (
+        <div className="sh">
+          <div className="kick">Edge perception studio and demand-responsive signal control</div>
+          <h2>Live 4-lane junction</h2>
+          <p>
+            Upload traffic videos into each lane or ingest all four at once. YOLOv8 detects objects in real time, computes PCU road density and arbitrates green signal timings.
+          </p>
         </div>
+      )}
 
-        {/* Global Feedback Banner */}
-        {feedbackMessage && (
-          <div className={`upload-feedback-banner ${feedbackType === 'error' ? 'feedback-error' : 'feedback-success'}`}>
-            <span>{feedbackMessage}</span>
-            <button className="remove-file-btn" onClick={() => setFeedbackMessage(null)}>✕</button>
-          </div>
-        )}
-      </div>
+      {/* Hidden batch file input */}
+      <input
+        ref={batchFileInputRef}
+        type="file"
+        id="batch"
+        accept="video/*,.mp4,.avi,.mov,.mkv,.webm"
+        multiple
+        hidden
+        onChange={handleBatchFilesSelected}
+      />
 
-      {/* =========================================================================
-          UNIFIED ORCHESTRATION & INGESTION TOOLBAR (NO DUPLICATE CARDS)
-          ========================================================================= */}
-      <div className="junction-orchestration-bar">
-        <div className="orchestration-left">
-          {/* Active Feeds Indicator */}
-          <div className="stream-status-pill font-mono">
-            <span
-              className="pulse-dot"
-              style={{
-                backgroundColor: hasAnyActiveVideo ? 'var(--signal-green)' : '#64748b',
-                boxShadow: hasAnyActiveVideo ? '0 0 8px var(--signal-green)' : 'none'
-              }}
-            />
+      {feedbackMessage && (
+        <div className={`upload-feedback-banner ${feedbackType === 'error' ? 'feedback-error' : 'feedback-success'}`}>
+          <span>{feedbackMessage}</span>
+          <button className="remove-file-btn" onClick={() => setFeedbackMessage(null)} aria-label="Dismiss feedback">✕</button>
+        </div>
+      )}
+
+      {/* Toolbar */}
+      <div className="card bar">
+        <div className="grp">
+          <span className={`feeds ${hasAnyActiveVideo ? 'live' : ''}`}>
+            <i></i>
             <span>
               {hasAnyActiveVideo
-                ? `● ACTIVE: ${activeFeedsCount}/4 FEEDS STREAMING`
-                : '○ STANDBY: 0/4 FEEDS (READY FOR PC UPLOADS)'}
+                ? `${activeFeedsCount}/4 feeds streaming`
+                : '0/4 feeds, ready for PC uploads'}
             </span>
-          </div>
-
-          {/* Hidden Multi-file picker for batch uploads */}
-          <input
-            ref={batchFileInputRef}
-            type="file"
-            multiple
-            accept="video/*,.mp4,.avi,.mov,.mkv,.webm"
-            style={{ display: 'none' }}
-            onChange={handleBatchFilesSelected}
-          />
-
-          {/* Batch Upload Button */}
+          </span>
           <button
-            className="btn-batch-upload"
+            className="btn pri"
+            id="bBatch"
             disabled={isBatchProcessing}
             onClick={() => batchFileInputRef.current?.click()}
-            title="Select up to 4 video files simultaneously from your PC folder to populate all lanes"
+            type="button"
           >
-            <svg className="icon icon-sm" viewBox="0 0 24 24">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="17 8 12 3 7 8" />
-              <line x1="12" y1="3" x2="12" y2="15" />
-            </svg>
-            {isBatchProcessing ? '⚡ Analyzing All Feeds...' : '📁 Batch Upload (1–4 Videos)'}
+            {isBatchProcessing ? 'Analyzing videos...' : 'Batch upload (1 to 4 videos)'}
           </button>
-
-          {/* Sample benchmark videos */}
           <button
-            className="load-sample-btn"
+            className="btn"
+            id="bDemo"
             onClick={handleLoadSampleDemos}
-            title="Populate 4 calibrated benchmark sample demo videos"
+            type="button"
           >
-            ▶ Load Benchmark Demo
+            Load benchmark demo
           </button>
-
-          {/* Clear all feeds */}
           <button
-            className="reset-benchmark-btn"
+            className="btn"
+            id="bClear"
             onClick={handleClearAllFeeds}
-            title="Reset all lane feeds, clear detections, and return to clean standby"
+            type="button"
           >
-            🗑 Clear Feeds
+            Clear feeds
           </button>
         </div>
 
-        <div className="orchestration-right">
-          {/* Sequencer Strategy */}
-          <div className="sequencer-mode-pill font-mono" title="Signal Sequencing Strategy">
+        <div className="grp">
+          <span className="seg">
             <button
-              className={`mode-tab-btn ${sequencerMode === 'adaptive' ? 'active' : ''}`}
-              onClick={() => setSequencerMode('adaptive')}
-              title="Green phase duration dynamically matches detected vehicle queue"
+              className={`btn ${sequencerMode === 'adaptive' ? 'on' : ''}`}
+              data-mode="adaptive"
+              onClick={() => {
+                setSequencerMode('adaptive');
+                const nextDur = laneTimings[activeLane] || 20;
+                setSecondsRemaining(Math.round(nextDur));
+              }}
+              type="button"
             >
-              ⚡ Dynamic (YOLO)
+              Dynamic (YOLO)
             </button>
             <button
-              className={`mode-tab-btn ${sequencerMode === 'fixed' ? 'active' : ''}`}
-              onClick={() => setSequencerMode('fixed')}
-              title="Fixed rapid test duration"
+              className={`btn ${sequencerMode === 'fixed' ? 'on' : ''}`}
+              data-mode="fixed"
+              onClick={() => {
+                setSequencerMode('fixed');
+                setSecondsRemaining(phaseDuration);
+              }}
+              type="button"
             >
-              ⏱ Fixed
+              Fixed
             </button>
-          </div>
+          </span>
 
           {sequencerMode === 'fixed' && (
-            <div className="phase-duration-selector font-mono" title="Fixed cycle duration">
+            <span className="seg" title="Fixed cycle duration">
               {[5, 8, 10].map((sec) => (
                 <button
                   key={sec}
-                  className={`timer-chip ${phaseDuration === sec ? 'active' : ''}`}
+                  className={`btn ${phaseDuration === sec ? 'on' : ''}`}
                   onClick={() => {
                     setPhaseDuration(sec);
                     setSecondsRemaining(sec);
                   }}
+                  type="button"
                 >
                   {sec}s
                 </button>
               ))}
-            </div>
+            </span>
           )}
 
-          {/* Play/Pause Cycle */}
           <button
-            className="sim-btn"
+            className="btn"
+            id="bRun"
             onClick={() => setIsCycleRunning(!isCycleRunning)}
-            title={isCycleRunning ? 'Pause signal sequencing' : 'Resume signal sequencing'}
-            style={{ borderColor: isCycleRunning ? 'var(--signal-green)' : 'var(--signal-yellow)' }}
+            type="button"
           >
-            {isCycleRunning ? '⏸ Pause' : '▶ Resume'}
+            {isCycleRunning ? 'Pause' : 'Resume'}
           </button>
 
-          {/* Force Lane Jump */}
-          <div className="lane-quick-selectors font-mono" title="Force green on specific approach">
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginRight: 2 }}>FORCE:</span>
-            {[1, 2, 3, 4].map((num) => (
-              <button
-                key={num}
-                className={`lane-selector-btn ${effectiveGreenLane === num ? 'active' : ''}`}
-                onClick={() => selectLane(num)}
-              >
-                L{num}
-              </button>
-            ))}
-          </div>
+          <span className="grp" style={{ gap: 0 }}>
+            <span className="lbl">Force green</span>
+            <span className="seg" id="force">
+              {[1, 2, 3, 4].map((n) => (
+                <button
+                  key={n}
+                  className={`btn ${hasAnyActiveVideo && effectiveGreenLane === n ? 'on' : ''}`}
+                  onClick={() => selectLane(n)}
+                  type="button"
+                >
+                  L{n}
+                </button>
+              ))}
+            </span>
+          </span>
 
-          {/* Emergency Ambulance Override */}
-          <button className={`sim-btn ${emergencyOverride ? 'sim-btn-active' : ''}`} onClick={toggleEmergency}>
-            <svg className="icon icon-sm text-critical" viewBox="0 0 24 24">
-              <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2" />
-              <line x1="12" y1="8" x2="12" y2="12" />
-              <line x1="12" y1="16" x2="12.01" y2="16" />
-            </svg>
-            {emergencyOverride ? '🚨 Cancel Emergency' : '🚑 Trigger Ambulance'}
+          <button
+            className={`btn ${emergencyOverride ? 'emg' : ''}`}
+            id="bEmg"
+            onClick={() => toggleEmergency(detectedAmbulanceLane)}
+            type="button"
+          >
+            {emergencyOverride ? 'Cancel emergency' : 'Trigger ambulance'}
           </button>
         </div>
       </div>
 
-      {/* =========================================================================
-          EMERGENCY CORRIDOR BANNER (DYNAMIC TO DETECTED LANE, ONLY IF ACTIVE)
-          ========================================================================= */}
-      {emergencyOverride && (hasAnyActiveVideo || manualEmergency) && (
-        <div className="emergency-banner" id="emergencyBanner">
-          <div className="emergency-left">
-            <div className="siren-icon-box">
-              <svg className="icon icon-lg" viewBox="0 0 24 24">
-                <path d="M12 2a5 5 0 0 0-5 5v3H5a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2a2 2 0 0 0-2-2h-2V7a5 5 0 0 0-5-5z" />
-                <line x1="12" y1="18" x2="12" y2="22" />
-                <line x1="8" y1="22" x2="16" y2="22" />
-              </svg>
-            </div>
-            <div>
-              <div className="emergency-title">
-                EMERGENCY OVERRIDE ENGAGED — AMBULANCE DETECTED IN LANE {detectedAmbulanceLane}
-              </div>
-              <div className="emergency-sub">
-                Corridor Clearing: Opposing lanes locked to <strong style={{ color: '#fff' }}>RED</strong>. Lane {detectedAmbulanceLane} ({laneDirections[detectedAmbulanceLane]}) green corridor active. Next downstream node Junction 7 pre-empted via MQTT.
-              </div>
-            </div>
-          </div>
-          <div className="emergency-meta-chip font-mono">
-            PRIORITY: <span className="text-green" style={{ fontWeight: 700 }}>TIER 1</span> | OVERRIDE PHASE: {secondsRemaining}s
-          </div>
+      {/* Emergency Banner */}
+      <div className={`banner ${emergencyOverride && hasAnyActiveVideo ? 'show' : ''}`} id="banner">
+        <div>
+          <h3 id="bt">Emergency override engaged. Ambulance detected in Lane {detectedAmbulanceLane}.</h3>
+          <p id="bp">
+            Corridor clearing: opposing lanes are locked to red. Lane {detectedAmbulanceLane} ({laneDirections[detectedAmbulanceLane]}) green corridor is active. The next downstream node, Junction 7, was pre-empted over MQTT.
+          </p>
         </div>
-      )}
+        <div className="m">
+          Priority <b>tier 1</b> · Override phase <b className="num" id="bs">{secondsRemaining} s</b>
+        </div>
+      </div>
 
-      {/* =========================================================================
-          MAIN 4-LANE PERCEPTION & CONTROL GRID (SINGLE SOURCE OF TRUTH)
-          ========================================================================= */}
-      {loading ? (
-        <div className="loading-box">Initializing Quad-Stream Feed Telemetry...</div>
-      ) : (
-        <div className="lanes-grid">
-          {[1, 2, 3, 4].map((laneNumber) => {
-            const lane = lanes.find((l) => l.lane_number === laneNumber) || {
-              id: laneNumber,
-              lane_number: laneNumber,
-              current_state: 'red',
-              density_percent: 0.0,
-              queue_count: 0,
-              is_ambulance_detected: false
-            };
+      {/* Junction Plan Card */}
+      <div className="card plan" id="plan">
+        <div className="map">
+          <div className="rv"></div>
+          <div className="rh"></div>
+          <div className="core num">{hasAnyActiveVideo ? secondsRemaining : '–'}</div>
 
-            const videoSrc = customVideoSources[laneNumber];
-            const customName = customVideoNames[laneNumber];
-            const hasVideo = videoSrc !== null;
-            const isUploading = uploadingLanes[laneNumber];
+          {/* Lane 1 bottom (s), Lane 2 left (w), Lane 3 top (n), Lane 4 right (e) */}
+          <span className={`sig s ${getSigClass(1)}`}>1</span>
+          <span className={`sig w ${getSigClass(2)}`}>2</span>
+          <span className={`sig n ${getSigClass(3)}`}>3</span>
+          <span className={`sig e ${getSigClass(4)}`}>4</span>
 
-            const isGreen = hasVideo && (laneNumber === effectiveGreenLane);
-            const isRed = hasVideo && !isGreen;
-            const isYellow = false;
+          <span className="dir n">Southbound</span>
+          <span className="dir s">Northbound</span>
+          <span className="dir w">Eastbound</span>
+          <span className="dir e">Westbound</span>
+        </div>
 
-            // Detections
-            const laneTracked = activeDetections[laneNumber];
-            const currentDetections = hasVideo ? (laneTracked || lane.detections || []) : [];
+        <div>
+          <div className="ph">
+            <strong>
+              {hasAnyActiveVideo
+                ? `Lane ${effectiveGreenLane} (${laneDirections[effectiveGreenLane]}) has green.`
+                : 'No feeds loaded. Load four videos or the benchmark demo to start the cycle.'}
+            </strong>
+            <span className="num">
+              {hasAnyActiveVideo
+                ? (emergencyOverride ? 'Emergency override' : `Cycle ${totalCycle} s`)
+                : 'Cycle –'}
+            </span>
+          </div>
 
-            const vehicleCount = hasVideo
-              ? (currentDetections.filter((d) => d.vehicle_class !== 'pedestrian' && d.vehicle_class !== 'person').length || lane.queue_count)
-              : 0;
-
-            const pedCount = hasVideo
-              ? currentDetections.filter((d) => d.vehicle_class === 'pedestrian' || d.vehicle_class === 'person').length
-              : 0;
-
-            const isThisLaneEmergency = (emergencyOverride && laneNumber === detectedAmbulanceLane) || lane.is_ambulance_detected;
-            const allocatedGreen = laneTimings[laneNumber] || (isThisLaneEmergency ? 60.0 : 20.0);
-
-            let badgeText = '';
-            let badgeClass = 'badge-override-standby';
-
-            if (!hasVideo) {
-              badgeText = 'AWAITING VIDEO FEED';
-              badgeClass = 'badge-override-standby';
-            } else if (emergencyOverride) {
-              if (laneNumber === detectedAmbulanceLane) {
-                badgeText = `AMBULANCE OVERRIDE — GREEN (${secondsRemaining}s)`;
-                badgeClass = 'badge-override-green';
-              } else {
-                badgeText = 'EMERGENCY HOLD — RED (PAUSED)';
-                badgeClass = 'badge-override-hold';
-              }
-            } else {
-              if (isGreen) {
-                badgeText = `ACTIVE GREEN (${secondsRemaining}s REMAINING)`;
-                badgeClass = 'badge-override-green';
-              } else {
-                badgeText = 'HOLDING RED (WAITING)';
-                badgeClass = 'badge-override-hold';
-              }
-            }
+          {slotData.map(({ n, duration, leftPct, widthPct }) => {
+            const isG = hasAnyActiveVideo && effectiveGreenLane === n;
+            const isR = hasAnyActiveVideo && !isG;
+            const prClass = !hasAnyActiveVideo ? '' : isG ? 'g' : 'r';
 
             return (
-              <div
-                key={laneNumber}
-                className={`lane-panel ${isThisLaneEmergency ? 'critical-active' : ''} ${isGreen ? 'active-green-phase' : ''}`}
-              >
-                {/* Lane Card Header */}
-                <div className="lane-header">
-                  <span className="lane-name">
+              <div key={n} className={`pr ${prClass}`}>
+                <span className="nm">
+                  <i></i>Lane {n}
+                </span>
+                <span className="trk">
+                  {hasAnyActiveVideo && (
                     <span
-                      style={{
-                        display: 'inline-block',
-                        width: 8,
-                        height: 8,
-                        borderRadius: '50%',
-                        backgroundColor: hasVideo
-                          ? (isGreen ? 'var(--signal-green)' : 'var(--signal-red)')
-                          : '#64748b',
-                        boxShadow: isGreen ? '0 0 8px var(--signal-green)' : 'none'
-                      }}
+                      className="slot"
+                      style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
                     />
-                    Lane {laneNumber} ({laneDirections[laneNumber]})
-                  </span>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    {hasVideo && (
-                      <>
-                        <button
-                          className="lane-quick-upload-trigger"
-                          onClick={() => fileInputRefs.current[laneNumber]?.click()}
-                          title="Replace video for this lane"
-                        >
-                          🔄 Replace
-                        </button>
-                        <button
-                          className="lane-quick-remove-trigger"
-                          onClick={() => {
-                            setCustomVideoSources((prev) => ({ ...prev, [laneNumber]: null }));
-                            setCustomVideoNames((prev) => ({ ...prev, [laneNumber]: null }));
-                            setStagedFiles((prev) => ({ ...prev, [laneNumber]: null }));
-                            setStagedAmbulance((prev) => ({ ...prev, [laneNumber]: false }));
-                            if (fileInputRefs.current[laneNumber]) fileInputRefs.current[laneNumber].value = '';
-                          }}
-                          title="Remove video from this lane"
-                        >
-                          ✕
-                        </button>
-                      </>
-                    )}
-                    <span className={`lane-state-badge ${badgeClass}`}>{badgeText}</span>
-                  </div>
-                </div>
-
-                {/* Hidden File Input for this specific lane */}
-                <input
-                  ref={(el) => (fileInputRefs.current[laneNumber] = el)}
-                  type="file"
-                  accept="video/*,.mp4,.avi,.mov,.mkv,.webm"
-                  style={{ display: 'none' }}
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      handleFileSelect(laneNumber, e.target.files[0], stagedAmbulance[laneNumber]);
-                    }
-                  }}
-                />
-
-                {/* Video Viewport: Clean Standby Upload Placeholder OR Active Stream */}
-                <div
-                  className="video-viewport"
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                      handleFileSelect(laneNumber, e.dataTransfer.files[0], stagedAmbulance[laneNumber]);
-                    }
-                  }}
-                >
-                  <div className="road-surface" />
-                  <div className="road-lanemark" />
-
-                  {/* Neural Scanning Radar Overlay when analyzing */}
-                  {isUploading && (
-                    <div className="video-analyzing-overlay">
-                      <div className="radar-spinner" />
-                      <div className="analyzing-title">Running YOLOv8 Neural Inference</div>
-                      <div className="analyzing-subtitle font-mono">
-                        Sampling video frames • Extracting bounding boxes • Computing PCU traffic density
-                      </div>
-                    </div>
                   )}
-
-                  {!hasVideo ? (
-                    /* STANDBY VIEWPORT DROPZONE & PC BROWSE */
-                    <div
-                      className="viewport-empty-placeholder"
-                      onClick={() => fileInputRefs.current[laneNumber]?.click()}
-                      title={`Click or drop a video file from your computer for Lane ${laneNumber}`}
-                    >
-                      <div className="placeholder-icon-circle">
-                        <svg className="icon icon-lg" viewBox="0 0 24 24">
-                          <polygon points="23 7 16 12 23 17 23 7" />
-                          <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                        </svg>
-                      </div>
-                      <div className="placeholder-title">Lane {laneNumber} Feed Standby</div>
-                      <div className="placeholder-desc">
-                        Drag & drop traffic video from PC or click to browse
-                      </div>
-                      <button
-                        className="placeholder-browse-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          fileInputRefs.current[laneNumber]?.click();
-                        }}
-                      >
-                        📁 Choose Video File from PC
-                      </button>
-
-                      {/* Manual Ambulance / Emergency Flag Toggle */}
-                      <div
-                        className="placeholder-amb-toggle"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <label className="ambulance-checkbox-row">
-                          <input
-                            type="checkbox"
-                            checked={stagedAmbulance[laneNumber] || false}
-                            onChange={(e) =>
-                              setStagedAmbulance((prev) => ({ ...prev, [laneNumber]: e.target.checked }))
-                            }
-                          />
-                          <span>🚑 Video Contains Emergency Vehicle</span>
-                        </label>
-                      </div>
-
-                      <span className="placeholder-hint">Supports MP4, AVI, MOV, MKV, WEBM</span>
-                    </div>
-                  ) : (
-                    /* ACTIVE VIDEO STREAM & YOLOV8 DETECTIONS */
-                    <>
-                      <video
-                        ref={(el) => {
-                          if (el) {
-                            videoRefs.current[laneNumber] = el;
-                            if (isCycleRunning) {
-                              el.play().catch(() => {});
-                            }
-                          }
-                        }}
-                        src={videoSrc}
-                        autoPlay
-                        loop
-                        muted
-                        playsInline
-                        onLoadedMetadata={(e) => {
-                          if (isCycleRunning) e.target.play().catch(() => {});
-                        }}
-                        onCanPlay={(e) => {
-                          if (isCycleRunning) e.target.play().catch(() => {});
-                        }}
-                        onTimeUpdate={(e) => handleTimeUpdate(laneNumber, e)}
-                        className="lane-video-element"
-                      />
-
-                      {/* Flow Status Pill Badge */}
-                      <div className={`lane-flow-pill ${isGreen ? 'pill-green' : 'pill-red'}`}>
-                        <span className={`flow-dot ${isGreen ? 'green' : 'red'}`} />
-                        <span>
-                          {isGreen
-                            ? `GREEN FLOW (${secondsRemaining}s / ${allocatedGreen}s)`
-                            : `RED SIGNAL • HOLDING (${allocatedGreen}s)`}
-                        </span>
-                      </div>
-
-                      {/* Camera HUD Overlay */}
-                      <div className="camera-hud-overlay">
-                        <span className="rec-indicator">
-                          <span className={isGreen ? 'rec-dot' : 'rec-dot paused'} />
-                          CAM-0{laneNumber} [{isGreen ? 'FLOWING' : 'HOLDING'}]
-                        </span>
-                        <span className="feed-origin-badge origin-custom">
-                          ● PC Feed: {customName ? (customName.length > 20 ? customName.substring(0, 18) + '...' : customName) : 'User Video'}
-                        </span>
-                      </div>
-
-                      {/* YOLOv8 Detection Bounding Boxes */}
-                      {currentDetections.map((d, i) => (
-                        <div
-                          key={d.id || i}
-                          className={`bbox ${getBBoxClass(d.vehicle_class)}`}
-                          style={{
-                            top: `${d.bbox_y * 100}%`,
-                            left: `${d.bbox_x * 100}%`,
-                            width: `${d.bbox_w * 100}%`,
-                            height: `${d.bbox_h * 100}%`
-                          }}
-                        >
-                          <span className="bbox-tag">
-                            {d.vehicle_class} {d.confidence_score ? d.confidence_score.toFixed(2) : '0.92'}
-                          </span>
-                        </div>
-                      ))}
-                    </>
-                  )}
-                </div>
-
-                {/* Telemetry Row with Signal Head */}
-                <div className="lane-telemetry-row">
-                  <div className="signal-head">
-                    <div className={`signal-lamp lamp-red ${isRed ? 'active' : ''}`} />
-                    <div className={`signal-lamp lamp-yellow ${isYellow || !hasVideo ? 'active' : ''}`} style={!hasVideo ? { opacity: 0.3 } : {}} />
-                    <div className={`signal-lamp lamp-green ${isGreen ? 'active' : ''}`} />
-                  </div>
-
-                  <div className="lane-metrics-group">
-                    <div className="metrics-data-line">
-                      <span className="text-muted">Detected Queue:</span>
-                      <span className="font-mono" style={{ fontWeight: 700, color: hasVideo ? '#fff' : '#64748b' }}>
-                        {hasVideo ? (
-                          <>
-                            {vehicleCount} Vehicles
-                            {pedCount > 0 && (
-                              <span style={{ color: '#10b981', marginLeft: '0.4rem', fontWeight: 600 }}>
-                                • {pedCount} Pedestrians
-                              </span>
-                            )}
-                            {lane.is_ambulance_detected && (
-                              <span style={{ color: '#f43f5e', marginLeft: '0.4rem', fontWeight: 700 }}>
-                                • 🚑 Ambulance
-                              </span>
-                            )}
-                          </>
-                        ) : (
-                          '-- (Standby)'
-                        )}
-                      </span>
-                    </div>
-
-                    <div className="density-bar-wrapper">
-                      <div className="metrics-data-line">
-                        <span className="text-muted">PCU Density Index:</span>
-                        <span
-                          className="font-mono"
-                          style={{
-                            color: !hasVideo
-                              ? '#64748b'
-                              : isGreen
-                              ? 'var(--signal-green)'
-                              : lane.density_percent > 70
-                              ? 'var(--signal-red)'
-                              : 'var(--signal-yellow)'
-                          }}
-                        >
-                          {hasVideo
-                            ? `${lane.density_percent}% (${isGreen ? 'Active Discharge' : lane.density_percent > 70 ? 'High Congestion' : 'Normal Queue'})`
-                            : '0.0% (Standby)'}
-                        </span>
-                      </div>
-                      <div className="density-bar-bg">
-                        <div
-                          className={`density-bar-fill ${
-                            lane.density_percent > 70
-                              ? 'density-high'
-                              : lane.density_percent > 40
-                              ? 'density-med'
-                              : 'density-low'
-                          }`}
-                          style={{ width: `${hasVideo ? lane.density_percent : 0}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Footer Telemetry */}
-                <div className="lane-footer-meta">
-                  <span>
-                    SIGNAL:{' '}
-                    <span className="font-mono" style={{ color: !hasVideo ? '#64748b' : isGreen ? 'var(--signal-green)' : 'var(--signal-red)', fontWeight: 700 }}>
-                      {!hasVideo ? 'OFFLINE [STANDBY]' : isGreen ? 'GREEN [FLOWING]' : 'RED [WAITING]'}
-                    </span>
-                  </span>
-                  <span className="font-mono text-yellow" style={{ fontSize: '0.7rem' }}>
-                    {!hasVideo
-                      ? 'No Feed'
-                      : isThisLaneEmergency
-                      ? 'EMERGENCY OVERRIDE (60s)'
-                      : `Dynamic Green: ${allocatedGreen}s`}
-                  </span>
-                </div>
+                </span>
+                <span className="s num">
+                  {hasAnyActiveVideo ? `${duration} s` : '–'}
+                </span>
               </div>
             );
           })}
+
+          <div className="foot">
+            {sequencerMode === 'adaptive'
+              ? 'Green slots follow the detected queue and are served in lane order 1, 2, 3, 4.'
+              : `Fixed mode: each approach receives ${phaseDuration} s, served in lane order 1, 2, 3, 4.`}
+          </div>
         </div>
-      )}
+      </div>
+
+      {/* 2x2 Lanes Grid */}
+      <div className="lanes" id="lanes">
+        {order.map((laneNumber) => {
+          const lane = lanes.find((l) => l.lane_number === laneNumber) || {
+            id: laneNumber,
+            lane_number: laneNumber,
+            current_state: 'red',
+            density_percent: 0.0,
+            queue_count: 0,
+            is_ambulance_detected: false
+          };
+
+          const videoSrc = customVideoSources[laneNumber];
+          const customName = customVideoNames[laneNumber];
+          const hasVideo = videoSrc !== null;
+
+          const isGreen = hasVideo && (laneNumber === effectiveGreenLane);
+          const isRed = hasVideo && !isGreen;
+          const isThisLaneEmergency = (emergencyOverride && laneNumber === detectedAmbulanceLane) || lane.is_ambulance_detected;
+          const allocatedGreen = laneTimings[laneNumber] || (isThisLaneEmergency ? 60.0 : 20.0);
+
+          const laneTracked = activeDetections[laneNumber];
+          const currentDetections = hasVideo ? (laneTracked || lane.detections || []) : [];
+
+          const vehicleCount = hasVideo
+            ? (currentDetections.filter((d) => d.vehicle_class !== 'pedestrian' && d.vehicle_class !== 'person').length || lane.queue_count)
+            : 0;
+
+          const densityPercent = hasVideo
+            ? (lane.density_percent || Math.min(100, Math.round(vehicleCount * 5.2)))
+            : 0;
+
+          let badgeText = 'Awaiting video feed';
+          let badgeClass = 'badge';
+
+          if (hasVideo) {
+            if (emergencyOverride) {
+              if (laneNumber === detectedAmbulanceLane) {
+                badgeText = `Ambulance override, green (${secondsRemaining}s)`;
+                badgeClass = 'badge g';
+              } else {
+                badgeText = 'Emergency hold, red (paused)';
+                badgeClass = 'badge r';
+              }
+            } else {
+              if (isGreen) {
+                badgeText = `Green, ${secondsRemaining}s remaining`;
+                badgeClass = 'badge g';
+              } else {
+                badgeText = 'Holding red, waiting';
+                badgeClass = 'badge r';
+              }
+            }
+          }
+
+          return (
+            <div
+              key={laneNumber}
+              className={`card lane ${isGreen ? 'g' : ''} ${isRed ? 'r' : ''} ${isThisLaneEmergency ? 'e' : ''}`}
+              id={`lane${laneNumber}`}
+            >
+              {/* Lane Header */}
+              <div className="lh">
+                <b>
+                  <i></i>Lane {laneNumber} ({laneDirections[laneNumber]})
+                </b>
+                <span className="grp" style={{ gap: 6 }}>
+                  {hasVideo && (
+                    <>
+                      <button
+                        className="btn mini"
+                        onClick={() => fileInputRefs.current[laneNumber]?.click()}
+                        type="button"
+                      >
+                        Replace
+                      </button>
+                      <button
+                        className="btn mini"
+                        onClick={() => {
+                          setCustomVideoSources((prev) => ({ ...prev, [laneNumber]: null }));
+                          setCustomVideoNames((prev) => ({ ...prev, [laneNumber]: null }));
+                          setStagedFiles((prev) => ({ ...prev, [laneNumber]: null }));
+                          setStagedAmbulance((prev) => ({ ...prev, [laneNumber]: false }));
+                          if (fileInputRefs.current[laneNumber]) fileInputRefs.current[laneNumber].value = '';
+                        }}
+                        type="button"
+                        aria-label={`Remove feed from Lane ${laneNumber}`}
+                      >
+                        ✕
+                      </button>
+                    </>
+                  )}
+                  <span className={badgeClass}>{badgeText}</span>
+                </span>
+              </div>
+
+              {/* Hidden File Input */}
+              <input
+                ref={(el) => (fileInputRefs.current[laneNumber] = el)}
+                type="file"
+                id={`f${laneNumber}`}
+                accept="video/*,.mp4,.avi,.mov,.mkv,.webm"
+                hidden
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    handleFileSelect(laneNumber, e.target.files[0], stagedAmbulance[laneNumber]);
+                  }
+                }}
+              />
+
+              {/* Viewport 16:9 */}
+              <div
+                className="vp"
+                id={`vp${laneNumber}`}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    handleFileSelect(laneNumber, e.dataTransfer.files[0], stagedAmbulance[laneNumber]);
+                  }
+                }}
+              >
+                {!hasVideo ? (
+                  <div
+                    className="ph0"
+                    onClick={() => fileInputRefs.current[laneNumber]?.click()}
+                  >
+                    <div className="ic">
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <rect x="2" y="6" width="14" height="12" rx="2" />
+                        <path d="m22 8-6 4 6 4z" />
+                      </svg>
+                    </div>
+                    <h4>Lane {laneNumber} feed standby</h4>
+                    <p>Drag and drop a traffic video from your PC, or click to browse.</p>
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        fileInputRefs.current[laneNumber]?.click();
+                      }}
+                    >
+                      Choose video file
+                    </button>
+                    <label onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={stagedAmbulance[laneNumber] || false}
+                        onChange={(e) =>
+                          setStagedAmbulance((prev) => ({ ...prev, [laneNumber]: e.target.checked }))
+                        }
+                      />
+                      Video contains an emergency vehicle
+                    </label>
+                    <small>MP4, AVI, MOV, MKV or WEBM</small>
+                  </div>
+                ) : (
+                  <>
+                    <video
+                      ref={(el) => {
+                        if (el) {
+                          videoRefs.current[laneNumber] = el;
+                          if (isCycleRunning) {
+                            el.play().catch(() => { });
+                          }
+                        }
+                      }}
+                      src={videoSrc}
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      onTimeUpdate={(e) => handleTimeUpdate(laneNumber, e)}
+                    />
+
+                    {/* HUD Top-Left */}
+                    <div className="hud num">
+                      CAM-0{laneNumber} · {customName || `lane${laneNumber}.mp4`}
+                    </div>
+
+                    {/* Pill Bottom-Left */}
+                    <div className={`pill ${isGreen ? 'g' : 'r'}`}>
+                      {isGreen
+                        ? `Green flow, ${secondsRemaining}s of ${Math.round(allocatedGreen)}s`
+                        : `Red, holding (${Math.round(allocatedGreen)}s allocated)`}
+                    </div>
+
+                    {/* YOLO Bounding Boxes */}
+                    {currentDetections.map((d, i) => (
+                      <div
+                        key={d.id || i}
+                        className={`bbox ${getBBoxClass(d.vehicle_class)}`}
+                        style={{
+                          top: `${d.bbox_y * 100}%`,
+                          left: `${d.bbox_x * 100}%`,
+                          width: `${d.bbox_w * 100}%`,
+                          height: `${d.bbox_h * 100}%`
+                        }}
+                      >
+                        <span className="bbox-tag">
+                          {d.vehicle_class} {d.confidence_score ? d.confidence_score.toFixed(2) : '0.98'}
+                        </span>
+                      </div>
+                    ))}
+
+                    {/* Ambulance Box Overlay if Emergency on this Lane */}
+                    {isThisLaneEmergency && !currentDetections.some((d) => d.vehicle_class === 'ambulance') && (
+                      <div
+                        className="bbox bbox-ambulance"
+                        style={{
+                          top: '22%',
+                          left: '26%',
+                          width: '36%',
+                          height: '52%'
+                        }}
+                      >
+                        <span className="bbox-tag">ambulance 0.98</span>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {/* Telemetry Row */}
+              <div className="tel">
+                <div className="head">
+                  <b className={`r ${isRed ? 'on' : ''}`}></b>
+                  <b className={`y ${!hasVideo ? 'on' : ''}`}></b>
+                  <b className={`g ${isGreen ? 'on' : ''}`}></b>
+                </div>
+
+                <div className="mg">
+                  <div className="ml">
+                    <span>Detected queue</span>
+                    <span className="num">
+                      {hasVideo ? `${vehicleCount} vehicles` : '-- (Standby)'}
+                    </span>
+                  </div>
+
+                  <div className="ml">
+                    <span>PCU density index</span>
+                    <span className="num">
+                      {hasVideo
+                        ? `${densityPercent}% (${isGreen ? 'active discharge' : densityPercent > 70 ? 'high congestion' : 'normal queue'})`
+                        : '0.0% (Standby)'}
+                    </span>
+                  </div>
+
+                  <div className="bt">
+                    <div style={{ width: `${hasVideo ? densityPercent : 0}%` }}></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer Row */}
+              <div className="lf">
+                <span>
+                  Signal <b className="num">{!hasVideo ? 'offline (standby)' : isGreen ? 'green (flowing)' : 'red (waiting)'}</b>
+                </span>
+                <span className="num">
+                  {!hasVideo
+                    ? 'No feed'
+                    : isThisLaneEmergency
+                      ? 'Emergency override (60 s)'
+                      : `Dynamic green ${Math.round(allocatedGreen)} s`}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </section>
   );
 }

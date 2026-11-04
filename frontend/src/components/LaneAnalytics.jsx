@@ -1,31 +1,27 @@
 import React, { useState, useEffect } from 'react';
 
-// Reusable SVG Donut Chart Component
-function DonutChart({ items, size = 180, strokeWidth = 22, centerValue, centerLabel }) {
+function DonutChart({ items, size = 160, strokeWidth = 20, centerValue, centerLabel }) {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const center = size / 2;
 
-  // Filter out items with 0 count
-  const validItems = items.filter(item => item.count > 0);
+  const validItems = items.filter((item) => item.count > 0);
   const total = validItems.reduce((acc, item) => acc + item.count, 0);
 
   let accumulatedPercent = 0;
 
   return (
-    <div className="donut-chart-wrapper" style={{ width: size, height: size, position: 'relative' }}>
+    <div className="donut-chart-wrapper" style={{ width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        {/* Background Circle */}
         <circle
           cx={center}
           cy={center}
           r={radius}
           fill="none"
-          stroke="rgba(255, 255, 255, 0.05)"
+          stroke="var(--sunken)"
           strokeWidth={strokeWidth}
         />
 
-        {/* Donut Slices */}
         {validItems.map((item, idx) => {
           const slicePercent = total > 0 ? item.count / total : 0;
           const strokeDasharray = `${slicePercent * circumference} ${circumference}`;
@@ -43,31 +39,22 @@ function DonutChart({ items, size = 180, strokeWidth = 22, centerValue, centerLa
               strokeWidth={strokeWidth}
               strokeDasharray={strokeDasharray}
               strokeDashoffset={strokeDashoffset}
-              strokeLinecap="round"
               transform={`rotate(-90 ${center} ${center})`}
-              style={{
-                transition: 'all 0.4s ease-out',
-                cursor: 'pointer',
-                filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4))'
-              }}
-            >
-              <title>{`${item.name}: ${item.count} (${(slicePercent * 100).toFixed(1)}%)`}</title>
-            </circle>
+            />
           );
         })}
       </svg>
 
-      {/* Center Label */}
       <div className="donut-center-content">
-        <div className="donut-center-val">{centerValue ?? total}</div>
-        <div className="donut-center-lbl">{centerLabel || 'DETECTED'}</div>
+        <div className="donut-center-val num">{centerValue ?? total}</div>
+        <div className="donut-center-lbl">{centerLabel || 'OBJECTS'}</div>
       </div>
     </div>
   );
 }
 
 export default function LaneAnalytics() {
-  const [selectedView, setSelectedView] = useState('all'); // 'all' | 1 | 2 | 3 | 4
+  const [selectedView, setSelectedView] = useState('all');
   const [dynamicTracks, setDynamicTracks] = useState(null);
 
   useEffect(() => {
@@ -79,95 +66,89 @@ export default function LaneAnalytics() {
       .catch(() => {});
   }, []);
 
-  // Baseline vehicle detection data
   const baseLaneVehicleData = {
     1: {
       id: 1,
       name: 'Lane 1 (Northbound)',
       direction: 'Northbound',
-      subtitle: 'Emergency Priority Corridor & Fast Transit',
+      subtitle: 'Emergency priority corridor and fast transit',
       totalVehicles: 8,
-      totalTracked: 110,
       pcuLoad: 8.2,
       dominantClass: 'Car (87.5%)',
-      statusNote: '🚨 Type-C Ambulance Active',
-      statusClass: 'text-critical',
+      statusNote: 'Ambulance active',
+      statusColor: 'red',
       classes: [
-        { name: 'Car', key: 'car', count: 7, pct: 87.5, color: '#3b82f6', pcu: 1.0 },
-        { name: 'Ambulance', key: 'ambulance', count: 1, pct: 12.5, color: '#f43f5e', pcu: 1.2 },
-        { name: 'Auto-Rickshaw', key: 'auto', count: 0, pct: 0, color: '#f59e0b', pcu: 0.8 },
-        { name: 'Bike', key: 'bike', count: 0, pct: 0, color: '#06b6d4', pcu: 0.5 },
-        { name: 'Bus', key: 'bus', count: 0, pct: 0, color: '#8b5cf6', pcu: 2.5 },
-        { name: 'Truck', key: 'truck', count: 0, pct: 0, color: '#f97316', pcu: 3.0 },
-        { name: 'Pedestrian', key: 'pedestrian', count: 0, pct: 0, color: '#10b981', pcu: 0.0 }
+        { name: 'Car', key: 'car', count: 7, pct: 87.5, color: 'var(--accent)' },
+        { name: 'Ambulance', key: 'ambulance', count: 1, pct: 12.5, color: 'var(--sig-red)' },
+        { name: 'Auto-rickshaw', key: 'auto', count: 0, pct: 0, color: 'var(--amber)' },
+        { name: 'Bike', key: 'bike', count: 0, pct: 0, color: 'var(--cyan)' },
+        { name: 'Bus', key: 'bus', count: 0, pct: 0, color: 'var(--violet)' },
+        { name: 'Truck', key: 'truck', count: 0, pct: 0, color: 'var(--orange)' },
+        { name: 'Pedestrian', key: 'pedestrian', count: 0, pct: 0, color: 'var(--green)' }
       ]
     },
     2: {
       id: 2,
       name: 'Lane 2 (Eastbound)',
       direction: 'Eastbound',
-      subtitle: 'Saturated Arterial Bottleneck & Dense Fleet',
+      subtitle: 'Saturated arterial bottleneck and dense fleet',
       totalVehicles: 27,
-      totalTracked: 1168,
       pcuLoad: 22.0,
       dominantClass: 'Car (44.4%) & Auto (37.0%)',
-      statusNote: '⚠️ High Density Bottleneck',
-      statusClass: 'text-yellow',
+      statusNote: 'High congestion',
+      statusColor: 'amber',
       classes: [
-        { name: 'Car', key: 'car', count: 12, pct: 44.4, color: '#3b82f6', pcu: 1.0 },
-        { name: 'Auto-Rickshaw', key: 'auto', count: 10, pct: 37.0, color: '#f59e0b', pcu: 0.8 },
-        { name: 'Pedestrian', key: 'pedestrian', count: 3, pct: 11.1, color: '#10b981', pcu: 0.0 },
-        { name: 'Bike', key: 'bike', count: 2, pct: 7.4, color: '#06b6d4', pcu: 0.5 },
-        { name: 'Bus', key: 'bus', count: 0, pct: 0, color: '#8b5cf6', pcu: 2.5 },
-        { name: 'Truck', key: 'truck', count: 0, pct: 0, color: '#f97316', pcu: 3.0 },
-        { name: 'Ambulance', key: 'ambulance', count: 0, pct: 0, color: '#f43f5e', pcu: 1.2 }
+        { name: 'Car', key: 'car', count: 12, pct: 44.4, color: 'var(--accent)' },
+        { name: 'Auto-rickshaw', key: 'auto', count: 10, pct: 37.0, color: 'var(--amber)' },
+        { name: 'Pedestrian', key: 'pedestrian', count: 3, pct: 11.1, color: 'var(--green)' },
+        { name: 'Bike', key: 'bike', count: 2, pct: 7.4, color: 'var(--cyan)' },
+        { name: 'Bus', key: 'bus', count: 0, pct: 0, color: 'var(--violet)' },
+        { name: 'Truck', key: 'truck', count: 0, pct: 0, color: 'var(--orange)' },
+        { name: 'Ambulance', key: 'ambulance', count: 0, pct: 0, color: 'var(--sig-red)' }
       ]
     },
     3: {
       id: 3,
       name: 'Lane 3 (Southbound)',
       direction: 'Southbound',
-      subtitle: 'Flyover Descent, Public Transit & Pedestrians',
+      subtitle: 'Flyover descent, public transit and pedestrians',
       totalVehicles: 19,
-      totalTracked: 767,
       pcuLoad: 17.0,
       dominantClass: 'Pedestrian (42.1%) & Car (36.8%)',
-      statusNote: '🟢 Free Flow Transit Corridor',
-      statusClass: 'text-green',
+      statusNote: 'Free-flow transit',
+      statusColor: 'green',
       classes: [
-        { name: 'Pedestrian', key: 'pedestrian', count: 8, pct: 42.1, color: '#10b981', pcu: 0.0 },
-        { name: 'Car', key: 'car', count: 7, pct: 36.8, color: '#3b82f6', pcu: 1.0 },
-        { name: 'Bus', key: 'bus', count: 4, pct: 21.1, color: '#8b5cf6', pcu: 2.5 },
-        { name: 'Bike', key: 'bike', count: 0, pct: 0, color: '#06b6d4', pcu: 0.5 },
-        { name: 'Auto-Rickshaw', key: 'auto', count: 0, pct: 0, color: '#f59e0b', pcu: 0.8 },
-        { name: 'Truck', key: 'truck', count: 0, pct: 0, color: '#f97316', pcu: 3.0 },
-        { name: 'Ambulance', key: 'ambulance', count: 0, pct: 0, color: '#f43f5e', pcu: 1.2 }
+        { name: 'Pedestrian', key: 'pedestrian', count: 8, pct: 42.1, color: 'var(--green)' },
+        { name: 'Car', key: 'car', count: 7, pct: 36.8, color: 'var(--accent)' },
+        { name: 'Bus', key: 'bus', count: 4, pct: 21.1, color: 'var(--violet)' },
+        { name: 'Bike', key: 'bike', count: 0, pct: 0, color: 'var(--cyan)' },
+        { name: 'Auto-rickshaw', key: 'auto', count: 0, pct: 0, color: 'var(--amber)' },
+        { name: 'Truck', key: 'truck', count: 0, pct: 0, color: 'var(--orange)' },
+        { name: 'Ambulance', key: 'ambulance', count: 0, pct: 0, color: 'var(--sig-red)' }
       ]
     },
     4: {
       id: 4,
       name: 'Lane 4 (Westbound)',
       direction: 'Westbound',
-      subtitle: 'Approaching Surge Bottleneck & Mixed Fleet',
+      subtitle: 'Approaching surge bottleneck and mixed fleet',
       totalVehicles: 21,
-      totalTracked: 617,
       pcuLoad: 13.4,
       dominantClass: 'Balanced (Auto / Car / Pedestrian)',
-      statusNote: '🔥 Surge Spike Warning (+23%)',
-      statusClass: 'text-yellow',
+      statusNote: 'Surge spike warning (+23%)',
+      statusColor: 'amber',
       classes: [
-        { name: 'Auto-Rickshaw', key: 'auto', count: 7, pct: 33.3, color: '#f59e0b', pcu: 0.8 },
-        { name: 'Car', key: 'car', count: 7, pct: 33.3, color: '#3b82f6', pcu: 1.0 },
-        { name: 'Pedestrian', key: 'pedestrian', count: 7, pct: 33.3, color: '#10b981', pcu: 0.0 },
-        { name: 'Bike', key: 'bike', count: 0, pct: 0, color: '#06b6d4', pcu: 0.5 },
-        { name: 'Bus', key: 'bus', count: 0, pct: 0, color: '#8b5cf6', pcu: 2.5 },
-        { name: 'Truck', key: 'truck', count: 0, pct: 0, color: '#f97316', pcu: 3.0 },
-        { name: 'Ambulance', key: 'ambulance', count: 0, pct: 0, color: '#f43f5e', pcu: 1.2 }
+        { name: 'Auto-rickshaw', key: 'auto', count: 7, pct: 33.3, color: 'var(--amber)' },
+        { name: 'Car', key: 'car', count: 7, pct: 33.3, color: 'var(--accent)' },
+        { name: 'Pedestrian', key: 'pedestrian', count: 7, pct: 33.3, color: 'var(--green)' },
+        { name: 'Bike', key: 'bike', count: 0, pct: 0, color: 'var(--cyan)' },
+        { name: 'Bus', key: 'bus', count: 0, pct: 0, color: 'var(--violet)' },
+        { name: 'Truck', key: 'truck', count: 0, pct: 0, color: 'var(--orange)' },
+        { name: 'Ambulance', key: 'ambulance', count: 0, pct: 0, color: 'var(--sig-red)' }
       ]
     }
   };
 
-  // Build dynamically updated lane vehicle data if custom video detections are present
   const laneVehicleData = { ...baseLaneVehicleData };
   if (dynamicTracks) {
     [1, 2, 3, 4].forEach((laneId) => {
@@ -175,210 +156,129 @@ export default function LaneAnalytics() {
       if (track && track.vehicle_breakdown && Object.keys(track.vehicle_breakdown).length > 0) {
         const vb = track.vehicle_breakdown;
         const total = Object.values(vb).reduce((a, b) => a + b, 0) || track.queue_count || 1;
-        
+
         laneVehicleData[laneId] = {
           ...laneVehicleData[laneId],
           totalVehicles: track.queue_count || total,
           pcuLoad: (track.density_percent * 0.28).toFixed(1),
-          statusNote: track.is_ambulance_detected
-            ? '🚨 Type-C Ambulance Active'
-            : track.density_percent > 70
-            ? '⚠️ High Density Bottleneck'
-            : '🟢 Adaptive Discharge Flow',
-          statusClass: track.is_ambulance_detected
-            ? 'text-critical'
-            : track.density_percent > 70
-            ? 'text-yellow'
-            : 'text-green',
           classes: [
-            { name: 'Car', key: 'car', count: vb.car || 0, pct: Math.round(((vb.car || 0) / total) * 100), color: '#3b82f6', pcu: 1.0 },
-            { name: 'Ambulance', key: 'ambulance', count: vb.ambulance || 0, pct: Math.round(((vb.ambulance || 0) / total) * 100), color: '#f43f5e', pcu: 1.2 },
-            { name: 'Auto-Rickshaw', key: 'auto', count: vb['auto-rickshaw'] || 0, pct: Math.round(((vb['auto-rickshaw'] || 0) / total) * 100), color: '#f59e0b', pcu: 0.8 },
-            { name: 'Bike', key: 'bike', count: vb.bike || 0, pct: Math.round(((vb.bike || 0) / total) * 100), color: '#06b6d4', pcu: 0.5 },
-            { name: 'Bus', key: 'bus', count: vb.bus || 0, pct: Math.round(((vb.bus || 0) / total) * 100), color: '#8b5cf6', pcu: 2.5 },
-            { name: 'Truck', key: 'truck', count: vb.truck || 0, pct: Math.round(((vb.truck || 0) / total) * 100), color: '#f97316', pcu: 3.0 },
-            { name: 'Pedestrian', key: 'pedestrian', count: vb.pedestrian || 0, pct: Math.round(((vb.pedestrian || 0) / total) * 100), color: '#10b981', pcu: 0.0 }
+            { name: 'Car', key: 'car', count: vb.car || 0, pct: Math.round(((vb.car || 0) / total) * 100), color: 'var(--accent)' },
+            { name: 'Ambulance', key: 'ambulance', count: vb.ambulance || 0, pct: Math.round(((vb.ambulance || 0) / total) * 100), color: 'var(--sig-red)' },
+            { name: 'Auto-rickshaw', key: 'auto', count: vb['auto-rickshaw'] || 0, pct: Math.round(((vb['auto-rickshaw'] || 0) / total) * 100), color: 'var(--amber)' },
+            { name: 'Bike', key: 'bike', count: vb.bike || 0, pct: Math.round(((vb.bike || 0) / total) * 100), color: 'var(--cyan)' },
+            { name: 'Bus', key: 'bus', count: vb.bus || 0, pct: Math.round(((vb.bus || 0) / total) * 100), color: 'var(--violet)' },
+            { name: 'Truck', key: 'truck', count: vb.truck || 0, pct: Math.round(((vb.truck || 0) / total) * 100), color: 'var(--orange)' },
+            { name: 'Pedestrian', key: 'pedestrian', count: vb.pedestrian || 0, pct: Math.round(((vb.pedestrian || 0) / total) * 100), color: 'var(--green)' }
           ]
         };
       }
     });
   }
 
-  // Intersection Aggregate Totals
-  const totalJunctionDetections =
-    laneVehicleData[1].totalVehicles +
-    laneVehicleData[2].totalVehicles +
-    laneVehicleData[3].totalVehicles +
-    laneVehicleData[4].totalVehicles;
-
-  const aggregateClasses = [
-    { name: 'Car', count: [1, 2, 3, 4].reduce((acc, id) => acc + (laneVehicleData[id].classes.find(c => c.name === 'Car')?.count || 0), 0), color: '#3b82f6' },
-    { name: 'Auto-Rickshaw', count: [1, 2, 3, 4].reduce((acc, id) => acc + (laneVehicleData[id].classes.find(c => c.name === 'Auto-Rickshaw')?.count || 0), 0), color: '#f59e0b' },
-    { name: 'Pedestrian', count: [1, 2, 3, 4].reduce((acc, id) => acc + (laneVehicleData[id].classes.find(c => c.name === 'Pedestrian')?.count || 0), 0), color: '#10b981' },
-    { name: 'Bus', count: [1, 2, 3, 4].reduce((acc, id) => acc + (laneVehicleData[id].classes.find(c => c.name === 'Bus')?.count || 0), 0), color: '#8b5cf6' },
-    { name: 'Bike', count: [1, 2, 3, 4].reduce((acc, id) => acc + (laneVehicleData[id].classes.find(c => c.name === 'Bike')?.count || 0), 0), color: '#06b6d4' },
-    { name: 'Ambulance', count: [1, 2, 3, 4].reduce((acc, id) => acc + (laneVehicleData[id].classes.find(c => c.name === 'Ambulance')?.count || 0), 0), color: '#f43f5e' }
-  ].map((c) => ({
-    ...c,
-    pct: totalJunctionDetections > 0 ? Math.round((c.count / totalJunctionDetections) * 100) : 0
-  }));
-
-
   const currentLaneData = typeof selectedView === 'number' ? laneVehicleData[selectedView] : null;
 
   return (
-    <section id="lane-analytics">
-      <div className="section-header">
-        <div className="section-tag">Spatial Perception & Multi-Class Distribution</div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '1rem' }}>
-          <div>
-            <h2 className="section-title">
-              <svg className="icon text-green" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 2a10 10 0 0 1 10 10" />
-                <circle cx="12" cy="12" r="4" />
-              </svg>
-              Lane Vehicle Analytics & Donut Graphs
-            </h2>
-            <p className="section-desc">
-              Visual composition analysis and multi-class detection distribution (Cars, Auto-Rickshaws, Bikes, Buses, Trucks, Ambulances, and Pedestrians) across each quad-camera approach.
-            </p>
-          </div>
-
-          {/* Interactive Navigation Filter */}
-          <div className="cycle-toolbar">
-            <button
-              className={`sim-btn ${selectedView === 'all' ? 'sim-btn-active' : ''}`}
-              onClick={() => setSelectedView('all')}
-              style={{
-                backgroundColor: selectedView === 'all' ? 'rgba(59, 130, 246, 0.2)' : undefined,
-                borderColor: selectedView === 'all' ? 'var(--accent-blue)' : undefined,
-                color: selectedView === 'all' ? '#ffffff' : undefined
-              }}
-            >
-              <svg className="icon icon-sm" viewBox="0 0 24 24">
-                <rect x="3" y="3" width="7" height="7" />
-                <rect x="14" y="3" width="7" height="7" />
-                <rect x="14" y="14" width="7" height="7" />
-                <rect x="3" y="14" width="7" height="7" />
-              </svg>
-              All 4 Lanes
-            </button>
-
-            {[1, 2, 3, 4].map(num => (
-              <button
-                key={num}
-                className={`sim-btn ${selectedView === num ? 'sim-btn-active' : ''}`}
-                style={{
-                  backgroundColor: selectedView === num ? 'rgba(34, 197, 94, 0.2)' : undefined,
-                  borderColor: selectedView === num ? 'var(--signal-green)' : undefined,
-                  color: selectedView === num ? '#ffffff' : undefined
-                }}
-                onClick={() => setSelectedView(num)}
-              >
-                Lane {num}
-              </button>
-            ))}
-          </div>
+    <div id="lane-analytics">
+      {/* Metric Strip */}
+      <div className="kg">
+        <div>
+          <span>Total objects</span>
+          <b className="num">75</b>
+        </div>
+        <div>
+          <span>Motorized</span>
+          <b className="num">57</b>
+        </div>
+        <div>
+          <span>Pedestrians</span>
+          <b className="num">18</b>
+        </div>
+        <div>
+          <span>Emergency</span>
+          <b className="num">1 Amb</b>
         </div>
       </div>
 
-      {/* Intersection-Wide Aggregate KPI Banner */}
-      <div className="kpi-summary-grid">
-        <div className="kpi-summary-card">
-          <span className="kpi-summary-label">Total Detected Objects</span>
-          <span className="kpi-summary-val text-green">{totalJunctionDetections}</span>
-          <span className="kpi-summary-sub">Active in intersection frame</span>
-        </div>
-        <div className="kpi-summary-card">
-          <span className="kpi-summary-label">Motorized Vehicles</span>
-          <span className="kpi-summary-val" style={{ color: '#60a5fa' }}>57</span>
-          <span className="kpi-summary-sub">33 Cars • 17 Autos • 4 Buses • 2 Bikes • 1 Amb</span>
-        </div>
-        <div className="kpi-summary-card">
-          <span className="kpi-summary-label">Pedestrians (VRUs)</span>
-          <span className="kpi-summary-val" style={{ color: '#10b981' }}>18</span>
-          <span className="kpi-summary-sub">Lane 3 (8) • Lane 4 (7) • Lane 2 (3)</span>
-        </div>
-        <div className="kpi-summary-card">
-          <span className="kpi-summary-label">Emergency Priority</span>
-          <span className="kpi-summary-val text-critical">1</span>
-          <span className="kpi-summary-sub">Lane 1 (Northbound) Corridor</span>
-        </div>
+      {/* Tabs */}
+      <div className="tabs" style={{ marginBottom: 16 }}>
+        <button
+          className={`btn ${selectedView === 'all' ? 'on' : ''}`}
+          onClick={() => setSelectedView('all')}
+          type="button"
+        >
+          All 4 lanes
+        </button>
+        {[1, 2, 3, 4].map((num) => (
+          <button
+            key={num}
+            className={`btn ${selectedView === num ? 'on' : ''}`}
+            onClick={() => setSelectedView(num)}
+            type="button"
+          >
+            Lane {num}
+          </button>
+        ))}
       </div>
 
-      {/* VIEW A: ALL 4 LANES QUAD-GRID (Donut Graph for Each Lane) */}
+      {/* All 4 Lanes Quad-Grid */}
       {selectedView === 'all' && (
         <div className="lanes-donut-grid">
           {[1, 2, 3, 4].map((laneNum) => {
             const lane = laneVehicleData[laneNum];
-            const validClasses = lane.classes.filter(c => c.count > 0);
+            const validClasses = lane.classes.filter((c) => c.count > 0);
 
             return (
               <div key={lane.id} className="lane-donut-card">
                 <div className="lane-donut-header">
                   <div>
                     <span className="lane-donut-title">{lane.name}</span>
-                    <div className="lane-donut-sub font-mono">{lane.subtitle}</div>
+                    <div className="lane-donut-sub">{lane.subtitle}</div>
                   </div>
-                  <span className={`font-mono ${lane.statusClass}`} style={{ fontSize: '0.72rem', fontWeight: 700 }}>
-                    {lane.statusNote}
-                  </span>
+                  <span className={`bd ${lane.statusColor}`}>{lane.statusNote}</span>
                 </div>
 
                 <div className="lane-donut-body">
-                  {/* SVG Donut Chart */}
                   <DonutChart
                     items={lane.classes}
-                    size={170}
-                    strokeWidth={20}
+                    size={150}
+                    strokeWidth={18}
                     centerValue={lane.totalVehicles}
                     centerLabel="OBJECTS"
                   />
 
-                  {/* Vehicle Breakdown Legend Badges */}
                   <div className="donut-legend-stack">
-                    <div className="legend-section-title font-mono">DETECTED VEHICLES & PEDESTRIANS:</div>
                     {validClasses.map((item) => (
                       <div key={item.key} className="donut-legend-item">
-                        <span className="legend-badge-pill" style={{ backgroundColor: `${item.color}22`, borderColor: item.color, color: item.color }}>
+                        <span className="legend-badge-pill">
                           <span className="legend-color-dot" style={{ backgroundColor: item.color }} />
-                          <strong>{item.name}</strong>
+                          <b>{item.name}</b>
                         </span>
-                        <span className="font-mono" style={{ fontSize: '0.8rem', color: '#f1f5f9' }}>
-                          <strong>{item.count}</strong> <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>({item.pct}%)</span>
+                        <span className="num" style={{ fontSize: '13px' }}>
+                          <b>{item.count}</b> <span style={{ color: 'var(--ink-3)', fontSize: '11.5px' }}>({item.pct}%)</span>
                         </span>
                       </div>
                     ))}
 
                     <div className="lane-pcu-meter">
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                        <span>PCU Capacity Occupancy:</span>
-                        <span className="font-mono text-yellow">{lane.pcuLoad} / 28.0 PCU</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--ink-2)', marginBottom: 4 }}>
+                        <span>PCU capacity occupancy:</span>
+                        <span className="num"><b>{lane.pcuLoad} / 28.0 PCU</b></span>
                       </div>
-                      <div className="density-bar-bg" style={{ height: 6 }}>
-                        <div
-                          className="density-bar-fill"
-                          style={{
-                            width: `${Math.min(100, (lane.pcuLoad / 28.0) * 100)}%`,
-                            backgroundColor: lane.pcuLoad > 20 ? 'var(--signal-red)' : lane.pcuLoad > 10 ? 'var(--signal-yellow)' : 'var(--signal-green)'
-                          }}
-                        />
+                      <div className="bt">
+                        <div style={{ width: `${Math.min(100, (lane.pcuLoad / 28.0) * 100)}%` }} />
                       </div>
                     </div>
                   </div>
                 </div>
 
                 <div className="lane-donut-footer">
-                  <span className="font-mono text-dim" style={{ fontSize: '0.72rem' }}>
-                    Dominant: <strong style={{ color: '#fff' }}>{lane.dominantClass}</strong>
-                  </span>
+                  <span>Dominant: <b>{lane.dominantClass}</b></span>
                   <button
-                    className="sim-btn"
-                    style={{ padding: '0.2rem 0.6rem', fontSize: '0.72rem' }}
+                    className="btn mini"
                     onClick={() => setSelectedView(laneNum)}
+                    type="button"
                   >
-                    Deep Dive &rarr;
+                    Deep dive →
                   </button>
                 </div>
               </div>
@@ -387,87 +287,65 @@ export default function LaneAnalytics() {
         </div>
       )}
 
-      {/* VIEW B: SINGLE LANE DEEP DIVE WITH EXPANDED CHARTS */}
+      {/* Single Lane Deep Dive View */}
       {currentLaneData && (
         <div className="lane-deep-dive-panel">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#fff', margin: 0 }}>
-                  {currentLaneData.name} — Detailed Vehicle Perception Breakdown
-                </h3>
-                <span className={`font-mono ${currentLaneData.statusClass}`} style={{ fontSize: '0.8rem', fontWeight: 700 }}>
-                  {currentLaneData.statusNote}
-                </span>
-              </div>
-              <p className="font-mono text-dim" style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem' }}>
+              <h3 style={{ fontSize: '22px', fontWeight: 600 }}>
+                {currentLaneData.name} — Detailed vehicle breakdown
+              </h3>
+              <p style={{ fontSize: '13px', color: 'var(--ink-3)', marginTop: 2 }}>
                 {currentLaneData.subtitle}
               </p>
             </div>
-            <button className="sim-btn" onClick={() => setSelectedView('all')} style={{ padding: '0.35rem 0.75rem' }}>
-              &larr; Back to All 4 Lanes
+            <button className="btn" onClick={() => setSelectedView('all')} type="button">
+              ← Back to all 4 lanes
             </button>
           </div>
 
           <div className="deep-dive-grid">
-            {/* Left: Expanded Donut Chart */}
-            <div className="deep-dive-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1.75rem' }}>
-              <span className="font-mono text-muted" style={{ fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '1rem', letterSpacing: '0.05em' }}>
-                Modal Distribution Donut Chart
+            <div className="deep-dive-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontSize: '12px', color: 'var(--ink-3)', marginBottom: 14 }}>
+                Modal distribution
               </span>
               <DonutChart
                 items={currentLaneData.classes}
-                size={220}
-                strokeWidth={28}
+                size={190}
+                strokeWidth={24}
                 centerValue={currentLaneData.totalVehicles}
-                centerLabel="VEHICLES & VRU"
+                centerLabel="OBJECTS"
               />
-              <div style={{ marginTop: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'center' }}>
-                {currentLaneData.classes.filter(c => c.count > 0).map(item => (
-                  <span
-                    key={item.key}
-                    className="legend-badge-pill font-mono"
-                    style={{ backgroundColor: `${item.color}20`, borderColor: item.color, color: item.color, fontSize: '0.75rem', padding: '0.25rem 0.55rem' }}
-                  >
+              <div style={{ marginTop: 16, display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+                {currentLaneData.classes.filter((c) => c.count > 0).map((item) => (
+                  <span key={item.key} className="legend-badge-pill">
                     <span className="legend-color-dot" style={{ backgroundColor: item.color }} />
-                    {item.name}: <strong>{item.count}</strong> ({item.pct}%)
+                    {item.name}: <b className="num">{item.count}</b> ({item.pct}%)
                   </span>
                 ))}
               </div>
             </div>
 
-            {/* Right: Vehicle Class Volume Bar Chart */}
-            <div className="deep-dive-card" style={{ padding: '1.5rem' }}>
-              <span className="font-mono text-muted" style={{ fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '1rem', display: 'block', letterSpacing: '0.05em' }}>
-                Categorical Vehicle Detection Histogram
+            <div className="deep-dive-card">
+              <span style={{ fontSize: '12px', color: 'var(--ink-3)', marginBottom: 12, display: 'block' }}>
+                Vehicle class volume breakdown
               </span>
 
               <div className="vehicle-bars-container">
-                {currentLaneData.classes.map(item => {
-                  const maxCount = Math.max(...currentLaneData.classes.map(c => c.count), 1);
+                {currentLaneData.classes.map((item) => {
+                  const maxCount = Math.max(...currentLaneData.classes.map((c) => c.count), 1);
                   const barPercent = (item.count / maxCount) * 100;
 
                   return (
                     <div key={item.key} className="vehicle-bar-row">
                       <div className="vehicle-bar-meta">
-                        <span style={{ color: item.count > 0 ? '#fff' : 'var(--text-dim)', fontWeight: item.count > 0 ? 600 : 400, minWidth: '110px' }}>
-                          {item.name}
-                        </span>
-                        <span className="font-mono" style={{ color: item.color, fontWeight: 700, fontSize: '0.85rem' }}>
-                          {item.count} units
-                        </span>
-                        <span className="font-mono text-dim" style={{ fontSize: '0.72rem' }}>
-                          ({item.pct}%)
-                        </span>
+                        <span>{item.name}</span>
+                        <span className="num"><b>{item.count}</b> ({item.pct}%)</span>
                       </div>
                       <div className="vehicle-bar-track">
                         <div
                           className="vehicle-bar-fill"
-                          style={{
-                            width: `${barPercent}%`,
-                            backgroundColor: item.color,
-                            boxShadow: item.count > 0 ? `0 0 8px ${item.color}88` : 'none'
-                          }}
+                          style={{ width: `${barPercent}%`, backgroundColor: item.color }}
                         />
                       </div>
                     </div>
@@ -475,81 +353,68 @@ export default function LaneAnalytics() {
                 })}
               </div>
 
-              {/* PCU Formula Reference */}
-              <div className="pcu-calc-banner font-mono">
-                <span>PCU Occupancy = &Sigma; (Count &times; Weight) = <strong>{currentLaneData.pcuLoad} PCU</strong></span>
-                <span className="text-muted">Max Capacity: 28.0 PCU ({((currentLaneData.pcuLoad / 28.0) * 100).toFixed(1)}% Load)</span>
+              <div className="pcu-calc-banner">
+                <span>PCU occupancy = Σ (count × weight) = <b className="num">{currentLaneData.pcuLoad} PCU</b></span>
+                <span style={{ color: 'var(--ink-3)' }}>Max capacity: 28.0 PCU ({((currentLaneData.pcuLoad / 28.0) * 100).toFixed(1)}% load)</span>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Cross-Lane Comparative Volume Chart */}
-      <div className="panel" style={{ marginTop: '1.5rem' }}>
-        <div className="panel-header">
-          <span className="panel-title">Cross-Lane Comparative Traffic Composition & PCU Allocation</span>
-          <span className="font-mono text-dim" style={{ fontSize: '0.75rem' }}>Quad-Channel Volume Comparison</span>
+      {/* Cross-Lane Comparative Table */}
+      <div className="card panel">
+        <div className="t">
+          <b>Cross-lane comparative traffic composition and PCU allocation</b>
+          <span>Quad-channel volume comparison</span>
         </div>
-        <div className="panel-body">
-          <div className="table-responsive">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Lane Approach</th>
-                  <th>Total Detected</th>
-                  <th>Cars</th>
-                  <th>Auto-Rickshaws</th>
-                  <th>Bikes</th>
-                  <th>Buses</th>
-                  <th>Ambulances</th>
-                  <th>Pedestrians</th>
-                  <th>PCU Load</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[1, 2, 3, 4].map(num => {
-                  const l = laneVehicleData[num];
-                  const getCnt = (k) => l.classes.find(c => c.key === k)?.count || 0;
+        <table>
+          <thead>
+            <tr>
+              <th>Lane approach</th>
+              <th>Total detected</th>
+              <th>Cars</th>
+              <th>Auto-rickshaws</th>
+              <th>Bikes</th>
+              <th>Buses</th>
+              <th>Ambulances</th>
+              <th>Pedestrians</th>
+              <th>PCU load</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[1, 2, 3, 4].map((num) => {
+              const l = laneVehicleData[num];
+              const getCnt = (k) => l.classes.find((c) => c.key === k)?.count || 0;
 
-                  return (
-                    <tr key={num} className={selectedView === num ? 'highlight-row' : ''}>
-                      <td>
-                        <strong style={{ color: '#fff' }}>{l.name}</strong>
-                        <div className="font-mono text-dim" style={{ fontSize: '0.7rem' }}>{l.direction}</div>
-                      </td>
-                      <td>
-                        <span className="font-mono" style={{ fontWeight: 800, fontSize: '0.95rem', color: '#60a5fa' }}>
-                          {l.totalVehicles}
-                        </span>
-                      </td>
-                      <td className="font-mono">{getCnt('car') || '-'}</td>
-                      <td className="font-mono">{getCnt('auto') || '-'}</td>
-                      <td className="font-mono">{getCnt('bike') || '-'}</td>
-                      <td className="font-mono">{getCnt('bus') || '-'}</td>
-                      <td className="font-mono">
-                        {getCnt('ambulance') > 0 ? (
-                          <span className="badge-heavy font-mono">1 (Active)</span>
-                        ) : '-'}
-                      </td>
-                      <td className="font-mono">
-                        {getCnt('pedestrian') > 0 ? (
-                          <span className="text-green" style={{ fontWeight: 700 }}>{getCnt('pedestrian')}</span>
-                        ) : '-'}
-                      </td>
-                      <td>
-                        <span className="font-mono text-yellow" style={{ fontWeight: 700 }}>
-                          {l.pcuLoad} PCU
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+              return (
+                <tr key={num} className={selectedView === num ? 'hl' : ''}>
+                  <td>
+                    <b>{l.name}</b>
+                    <span className="sub">{l.direction}</span>
+                  </td>
+                  <td className="num"><b>{l.totalVehicles}</b></td>
+                  <td className="num">{getCnt('car') || '-'}</td>
+                  <td className="num">{getCnt('auto') || '-'}</td>
+                  <td className="num">{getCnt('bike') || '-'}</td>
+                  <td className="num">{getCnt('bus') || '-'}</td>
+                  <td>
+                    {getCnt('ambulance') > 0 ? (
+                      <span className="bd red" style={{ padding: '2px 6px', borderRadius: 3, fontSize: '11px' }}>
+                        1 active
+                      </span>
+                    ) : (
+                      <span className="num">-</span>
+                    )}
+                  </td>
+                  <td className="num">{getCnt('pedestrian') || '-'}</td>
+                  <td className="num"><b>{l.pcuLoad} PCU</b></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
-    </section>
+    </div>
   );
 }
