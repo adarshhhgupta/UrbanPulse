@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect width="64" height="64" rx="14" fill="#0b4f94"/>
+  <!-- 4-lane intersection grid -->
+  <path d="M32 8 V56" stroke="#ffffff" stroke-width="7" stroke-linecap="round"/>
+  <path d="M8 32 H56" stroke="#ffffff" stroke-width="7" stroke-linecap="round"/>
+  <!-- Center junction badge -->
+  <circle cx="32" cy="32" r="9" fill="#0b4f94"/>
+  <circle cx="32" cy="32" r="5" fill="#1f9d5c"/>
+  <!-- Traffic signal dots -->
+  <circle cx="32" cy="15" r="3.5" fill="#d33a32"/>
+  <circle cx="49" cy="32" r="3.5" fill="#e9a40c"/>
+  <circle cx="32" cy="49" r="3.5" fill="#1f9d5c"/>
+  <circle cx="15" cy="32" r="3.5" fill="#35c27a"/>
+</svg>
