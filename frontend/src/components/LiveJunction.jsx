@@ -56,7 +56,6 @@ export default function LiveJunction({ isDedicated = false }) {
     Object.entries(activeDetections).find(([_, dets]) =>
       Array.isArray(dets) && dets.some((d) => d.vehicle_class === 'ambulance')
     )?.[0] ||
-    Object.entries(stagedAmbulance).find(([_, isAmb]) => isAmb)?.[0] ||
     lanes.find((l) => l.is_ambulance_detected)?.lane_number ||
     (videoTracks && Object.entries(videoTracks).find(([_, t]) => t && t.is_ambulance_detected)?.[0]) ||
     emergencyLane ||
@@ -66,7 +65,7 @@ export default function LiveJunction({ isDedicated = false }) {
   const isEffectiveEmergency = Boolean(
     emergencyOverride ||
     manualEmergency ||
-    Object.values(stagedAmbulance).some(Boolean) ||
+    // Only use activeDetections (actual model output) — NOT stagedAmbulance checkbox
     Object.values(activeDetections).some((dets) => Array.isArray(dets) && dets.some((d) => d.vehicle_class === 'ambulance')) ||
     lanes.some((l) => l.is_ambulance_detected) ||
     (videoTracks && Object.values(videoTracks).some((t) => t && t.is_ambulance_detected))

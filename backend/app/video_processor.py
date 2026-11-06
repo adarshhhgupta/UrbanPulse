@@ -219,7 +219,7 @@ def process_uploaded_video(
     original_filename: str = "",
     manual_ambulance: bool = False,
     sample_interval: float = 1.0,
-    max_frames_to_sample: int = 16
+    max_frames_to_sample: int = 30
 ) -> Dict[str, Any]:
     """
     Processes an arbitrary video file uploaded from user's PC for any lane:
@@ -250,14 +250,8 @@ def process_uploaded_video(
     oiv7_model = get_oiv7_model()
     oiv7_emerg_ids = get_oiv7_emergency_classes(oiv7_model) if oiv7_model else set()
 
-    fn_lower = (original_filename or "").lower()
-    is_emergency_file = bool(
-        manual_ambulance or 
-        "ambulance" in fn_lower or 
-        fn_lower.startswith("amb") or 
-        "_amb" in fn_lower or 
-        "emerg" in fn_lower
-    )
+    # Ambulance is ONLY detected by the neural model with strict size gating.
+    # We never force-label based on filename or checkbox — model output is the sole truth.
 
     time_steps = []
     t = 0.0
@@ -385,14 +379,7 @@ def process_uploaded_video(
                 best_cand["vehicle_class"] = "ambulance"
                 best_cand["confidence_score"] = round(max(0.95, best_amb["conf"]), 2)
                 ambulance_verified = True
-        elif is_emergency_file and raw_candidates and not ambulance_verified:
-            # Fallback for manual emergency override: mark ONLY the single primary approaching vehicle
-            for cand in raw_candidates:
-                if cand["vehicle_class"] in ["truck", "car", "auto-rickshaw", "bus"] and cand["bbox_w"] >= 0.10:
-                    cand["vehicle_class"] = "ambulance"
-                    cand["confidence_score"] = 0.96
-                    ambulance_verified = True
-                    break
+        # NOTE: NO fallback force-label. If the model doesn't confirm an ambulance, there is none.
 
         # Apply confidence-ranked non-maximum suppression
         step_detections = apply_flexible_nms(raw_candidates)
