@@ -279,10 +279,49 @@ def process_uploaded_video(
     oiv7_model = get_oiv7_model()
     oiv7_emerg_ids = get_oiv7_emergency_classes(oiv7_model) if oiv7_model else set()
 
-    # Determine if this video file is marked as an emergency vehicle feed
+    # Pass 1: Automated video perception scan for emergency response vehicles (optical strobe & model signature)
+    auto_emergency_detected = False
+    if amb_model and total_frames > 0:
+        sample_step = max(1, total_frames // 12)
+        model_hits = 0
+        strobe_hits = 0
+        for scan_idx in range(0, min(total_frames, sample_step * 10), sample_step):
+            cap.set(cv2.CAP_PROP_POS_FRAMES, scan_idx)
+            s_ret, s_frame = cap.read()
+            if not s_ret:
+                break
+            s_night = float(np.mean(s_frame)) < 88.0
+
+            # Optical strobe beacon check
+            r = s_frame[:, :, 2].astype(float)
+            g = s_frame[:, :, 1].astype(float)
+            b = s_frame[:, :, 0].astype(float)
+            red_mask = (r > 160) & (r > g * 1.5) & (r > b * 1.5)
+            if np.sum(red_mask) >= 300:
+                strobe_hits += 1
+
+            # Ambulance model check
+            s_conf = 0.15 if s_night else 0.35
+            try:
+                s_res = amb_model.predict(source=s_frame, conf=s_conf, imgsz=640, verbose=False)[0]
+                for box in s_res.boxes:
+                    s_xywhn = box.xywhn[0].tolist()
+                    bw, bh, cy = s_xywhn[2], s_xywhn[3], s_xywhn[1]
+                    if bw >= 0.10 and (bw * bh) >= 0.015 and cy >= 0.40:
+                        model_hits += 1
+                        break
+            except Exception:
+                pass
+
+        if model_hits >= 2 or (strobe_hits >= 2 and model_hits >= 1):
+            auto_emergency_detected = True
+            logger.info(f"[Lane {lane_id}] Automatic emergency recognition triggered! (model_hits={model_hits}, strobe_hits={strobe_hits})")
+
+    # Determine if this video file is marked or recognized as an emergency vehicle feed
     fn_lower = (original_filename or "").lower()
     is_emergency_file = bool(
         manual_ambulance or
+        auto_emergency_detected or
         "ambulance" in fn_lower or
         fn_lower.startswith("amb") or
         "_amb" in fn_lower or
@@ -294,7 +333,7 @@ def process_uploaded_video(
     sampled_count = 0
     all_seen_classes = {}
     peak_queue = 0
-    ambulance_verified = False
+    ambulance_verified = bool(is_emergency_file)
 
     # Dynamically scale sampling interval to span the full video duration evenly
     if duration > 0 and max_frames_to_sample > 0:
@@ -316,29 +355,40 @@ def process_uploaded_video(
         amb_boxes = []
         if amb_model:
             try:
-                min_amb_conf = 0.15 if is_emergency_file else 0.70
+                min_amb_conf = 0.15 if (is_emergency_file or is_night) else 0.35
                 amb_results = amb_model.predict(source=frame, conf=min_amb_conf, imgsz=640, verbose=False)[0]
                 for box in amb_results.boxes:
                     amb_conf = float(box.conf[0])
                     xywhn = box.xywhn[0].tolist()
                     aw = xywhn[2]
                     ah = xywhn[3]
+                    cx, cy = xywhn[0], xywhn[1]
                     aspect = ah / max(aw, 0.001)
-                    # Size gate: must be vehicle-sized, not a tall narrow human sliver
-                    if aw >= 0.06 and aspect <= 3.0 and (aw * ah) >= 0.006:
-                        top_x = max(0.0, min(1.0, xywhn[0] - aw / 2))
-                        top_y = max(0.0, min(1.0, xywhn[1] - ah / 2))
-                        amb_boxes.append({
-                            "vehicle_class": "ambulance",
-                            "confidence_score": round(max(0.96, amb_conf), 2),
-                            "bbox_x": round(top_x, 3),
-                            "bbox_y": round(top_y, 3),
-                            "bbox_w": round(min(1.0 - top_x, aw), 3),
-                            "bbox_h": round(min(1.0 - top_y, ah), 3),
-                            "cx": round(xywhn[0], 3),
-                            "cy": round(xywhn[1], 3)
-                        })
-                        ambulance_verified = True
+                    area = aw * ah
+
+                    # Spatial roadway & vehicle geometry filter:
+                    # Must be positioned on the road surface, not upper building signs or sidewalks
+                    if cy < 0.38 or cx < 0.08 or cx > 0.85:
+                        continue
+                    if aw < 0.08 or ah < 0.08 or area < 0.012 or aspect > 3.0:
+                        continue
+                    # Daylight traffic without manual emergency trigger requires high confidence to prevent false triggers
+                    if not is_night and not is_emergency_file and amb_conf < 0.70:
+                        continue
+
+                    top_x = max(0.0, min(1.0, xywhn[0] - aw / 2))
+                    top_y = max(0.0, min(1.0, xywhn[1] - ah / 2))
+                    amb_boxes.append({
+                        "vehicle_class": "ambulance",
+                        "confidence_score": round(max(0.96, amb_conf), 2),
+                        "bbox_x": round(top_x, 3),
+                        "bbox_y": round(top_y, 3),
+                        "bbox_w": round(min(1.0 - top_x, aw), 3),
+                        "bbox_h": round(min(1.0 - top_y, ah), 3),
+                        "cx": round(xywhn[0], 3),
+                        "cy": round(xywhn[1], 3)
+                    })
+                    ambulance_verified = True
             except Exception as e:
                 logger.warning(f"Dedicated ambulance model inference error: {e}")
 
@@ -438,8 +488,8 @@ def process_uploaded_video(
                 })
 
         # Emergency feed approach fallback: if strobe flash caused amb_model to miss a frame,
-        # upgrade the approaching corridor vehicle to ambulance
-        if is_emergency_file and not any(c.get("vehicle_class") == "ambulance" for c in raw_candidates):
+        # or if video was recognized as an emergency feed, upgrade the approaching corridor vehicle to ambulance
+        if (is_emergency_file or ambulance_verified) and not any(c.get("vehicle_class") == "ambulance" for c in raw_candidates):
             approach_cands = [
                 c for c in raw_candidates
                 if c["vehicle_class"] in ["bus", "truck", "car"] and c["cx"] <= 0.45 and c["bbox_w"] >= 0.06
