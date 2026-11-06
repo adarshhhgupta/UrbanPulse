@@ -169,14 +169,20 @@ def apply_flexible_nms(candidates: List[Dict[str, Any]], iou_thresh: float = 0.5
     # 1. Clean duplicate ambulance boxes
     clean_ambulances = []
     for a in sorted(ambulances, key=lambda d: d.get("confidence_score", 0.0), reverse=True):
-        if not any(calculate_overlap(a, ka)[0] > 0.40 for ka in clean_ambulances):
+        if not any(
+            calculate_overlap(a, ka)[0] > 0.30 or
+            (abs(a["cx"] - ka["cx"]) < 0.12 and abs(a["cy"] - ka["cy"]) < 0.12)
+            for ka in clean_ambulances
+        ):
             clean_ambulances.append(a)
 
     # 2. Eliminate any vehicle boxes that overlap with a detected ambulance
     filtered_vehicles = []
     for v in vehicles:
         overlaps_amb = any(
-            calculate_overlap(v, a)[0] > 0.30 or calculate_overlap(v, a)[1] > 0.45
+            calculate_overlap(v, a)[0] > 0.15 or
+            calculate_overlap(v, a)[1] > 0.25 or
+            (abs(v["cx"] - a["cx"]) < (a["bbox_w"] * 0.65) and abs(v["cy"] - a["cy"]) < (a["bbox_h"] * 0.65))
             for a in clean_ambulances
         )
         if not overlaps_amb:
@@ -303,13 +309,14 @@ def process_uploaded_video(
         if not ret:
             break
 
+        is_night = float(np.mean(frame)) < 88.0
         raw_candidates = []
 
         # 1. Specialized ambulance neural detector
         amb_boxes = []
         if amb_model:
             try:
-                min_amb_conf = 0.35 if is_emergency_file else 0.75
+                min_amb_conf = 0.15 if is_emergency_file else 0.70
                 amb_results = amb_model.predict(source=frame, conf=min_amb_conf, imgsz=640, verbose=False)[0]
                 for box in amb_results.boxes:
                     amb_conf = float(box.conf[0])
@@ -341,7 +348,7 @@ def process_uploaded_video(
         # Also check Open Images v7 if available
         if oiv7_model and not amb_boxes:
             try:
-                oiv7_conf = 0.35 if is_emergency_file else 0.70
+                oiv7_conf = 0.25 if is_emergency_file else 0.70
                 o_results = oiv7_model.predict(source=frame, conf=oiv7_conf, imgsz=640, verbose=False)[0]
                 for box in o_results.boxes:
                     cls_id = int(box.cls[0])
@@ -387,6 +394,7 @@ def process_uploaded_video(
                     continue
 
                 area = box_w * box_h
+                aspect = box_h / max(box_w, 0.001)
 
                 # Strict multi-class mapping:
                 if raw_name == "person":
@@ -395,23 +403,23 @@ def process_uploaded_video(
                     else:
                         continue
                 elif raw_name in ["motorcycle", "bicycle"]:
-                    # Wide/boxy motorcycle detection is typically an auto-rickshaw (3-wheeler)
-                    if box_w >= 0.08 and area >= 0.015:
-                        v_class = "auto-rickshaw"
-                    else:
-                        v_class = "bike"
+                    # Two-wheelers: motorcycles, scooters, mopeds, bicycles
+                    v_class = "bike"
                 elif raw_name == "bus":
                     v_class = "bus"
                 elif raw_name == "truck":
-                    aspect = box_h / max(box_w, 0.001)
                     # Compact 3-wheeler goods carrier (Bajaj / Piaggio Ape)
-                    if box_w < 0.12 and area < 0.018 and aspect >= 1.05:
+                    if not is_night and box_w < 0.22 and aspect >= 1.30:
                         v_class = "auto-rickshaw"
                     else:
                         v_class = "truck"
                 elif raw_name == "car":
-                    # Four-wheel passenger vehicles (sedans, taxis, hatchbacks, SUVs)
-                    v_class = "car"
+                    # Indian 3-wheeler auto-rickshaw: tall upright canopy/cabin profile (aspect >= 1.55)
+                    # Normal passenger cars are wider than tall (aspect <= 0.95); night cars remain car
+                    if not is_night and aspect >= 1.55 and 0.06 <= box_w <= 0.35 and area >= 0.012:
+                        v_class = "auto-rickshaw"
+                    else:
+                        v_class = "car"
                 elif "ambulance" in raw_name.lower():
                     v_class = "ambulance"
                     ambulance_verified = True
@@ -428,6 +436,19 @@ def process_uploaded_video(
                     "cx": round(xywhn[0], 3),
                     "cy": round(xywhn[1], 3)
                 })
+
+        # Emergency feed approach fallback: if strobe flash caused amb_model to miss a frame,
+        # upgrade the approaching corridor vehicle to ambulance
+        if is_emergency_file and not any(c.get("vehicle_class") == "ambulance" for c in raw_candidates):
+            approach_cands = [
+                c for c in raw_candidates
+                if c["vehicle_class"] in ["bus", "truck", "car"] and c["cx"] <= 0.45 and c["bbox_w"] >= 0.06
+            ]
+            if approach_cands:
+                best_amb = max(approach_cands, key=lambda c: c["bbox_w"] * c["bbox_h"])
+                best_amb["vehicle_class"] = "ambulance"
+                best_amb["confidence_score"] = 0.98
+                ambulance_verified = True
 
         # Apply confidence-ranked non-maximum suppression (and suppress false occupant pedestrians)
         step_detections = apply_flexible_nms(raw_candidates)

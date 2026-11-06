@@ -9,14 +9,14 @@
     "height": 540,
     "total_frames_sampled": 27,
     "queue_count": 14,
-    "density_percent": 57.1,
+    "density_percent": 47.1,
     "is_ambulance_detected": false,
-    "allocated_green_seconds": 35.6,
+    "allocated_green_seconds": 34.1,
     "vehicle_breakdown": {
-      "car": 8,
+      "car": 5,
       "pedestrian": 4,
       "bus": 2,
-      "truck": 1
+      "auto-rickshaw": 4
     },
     "steps": [
       {
@@ -63,7 +63,7 @@
             "cy": 0.339
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.86,
             "bbox_x": 0.407,
             "bbox_y": 0.382,
@@ -208,7 +208,7 @@
         "time": 0.5,
         "detections": [
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.83,
             "bbox_x": 0.0,
             "bbox_y": 0.448,
@@ -248,7 +248,7 @@
             "cy": 0.352
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.89,
             "bbox_x": 0.351,
             "bbox_y": 0.382,
@@ -393,7 +393,7 @@
             "cy": 0.584
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.91,
             "bbox_x": 0.281,
             "bbox_y": 0.391,
@@ -463,7 +463,7 @@
             "cy": 0.352
           },
           {
-            "vehicle_class": "truck",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.48,
             "bbox_x": 0.61,
             "bbox_y": 0.372,
@@ -513,7 +513,7 @@
             "cy": 0.462
           },
           {
-            "vehicle_class": "truck",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.5,
             "bbox_x": 0.823,
             "bbox_y": 0.024,
@@ -538,7 +538,7 @@
         "time": 1.5,
         "detections": [
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.86,
             "bbox_x": 0.0,
             "bbox_y": 0.405,
@@ -618,7 +618,7 @@
             "cy": 0.351
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.54,
             "bbox_x": 0.595,
             "bbox_y": 0.372,
@@ -668,7 +668,7 @@
             "cy": 0.38
           },
           {
-            "vehicle_class": "truck",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.38,
             "bbox_x": 0.826,
             "bbox_y": 0.022,
@@ -683,7 +683,7 @@
         "time": 2.0,
         "detections": [
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.8,
             "bbox_x": 0.0,
             "bbox_y": 0.42,
@@ -754,6 +754,16 @@
           },
           {
             "vehicle_class": "car",
+            "confidence_score": 0.59,
+            "bbox_x": 0.562,
+            "bbox_y": 0.362,
+            "bbox_w": 0.071,
+            "bbox_h": 0.117,
+            "cx": 0.598,
+            "cy": 0.42
+          },
+          {
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.66,
             "bbox_x": 0.576,
             "bbox_y": 0.382,
@@ -763,7 +773,7 @@
             "cy": 0.507
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.27,
             "bbox_x": 0.703,
             "bbox_y": 0.351,
@@ -803,7 +813,7 @@
             "cy": 0.371
           },
           {
-            "vehicle_class": "truck",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.51,
             "bbox_x": 0.827,
             "bbox_y": 0.025,
@@ -818,7 +828,7 @@
         "time": 2.5,
         "detections": [
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.89,
             "bbox_x": 0.0,
             "bbox_y": 0.42,
@@ -888,7 +898,7 @@
             "cy": 0.405
           },
           {
-            "vehicle_class": "truck",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.5,
             "bbox_x": 0.611,
             "bbox_y": 0.359,
@@ -938,7 +948,7 @@
             "cy": 0.306
           },
           {
-            "vehicle_class": "truck",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.36,
             "bbox_x": 0.828,
             "bbox_y": 0.024,
@@ -972,6 +982,16 @@
       {
         "time": 3.0,
         "detections": [
+          {
+            "vehicle_class": "auto-rickshaw",
+            "confidence_score": 0.83,
+            "bbox_x": 0.0,
+            "bbox_y": 0.45,
+            "bbox_w": 0.063,
+            "bbox_h": 0.357,
+            "cx": 0.032,
+            "cy": 0.629
+          },
           {
             "vehicle_class": "car",
             "confidence_score": 0.94,
@@ -1023,7 +1043,7 @@
             "cy": 0.449
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "bike",
             "confidence_score": 0.65,
             "bbox_x": 0.462,
             "bbox_y": 0.508,
@@ -1053,7 +1073,7 @@
             "cy": 0.355
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.77,
             "bbox_x": 0.529,
             "bbox_y": 0.397,
@@ -1073,7 +1093,7 @@
             "cy": 0.415
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.71,
             "bbox_x": 0.688,
             "bbox_y": 0.365,
@@ -1123,7 +1143,7 @@
             "cy": 0.377
           },
           {
-            "vehicle_class": "truck",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.26,
             "bbox_x": 0.826,
             "bbox_y": 0.024,
@@ -1198,7 +1218,7 @@
             "cy": 0.36
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.47,
             "bbox_x": 0.378,
             "bbox_y": 0.392,
@@ -1208,7 +1228,7 @@
             "cy": 0.531
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "bike",
             "confidence_score": 0.82,
             "bbox_x": 0.433,
             "bbox_y": 0.546,
@@ -1228,7 +1248,7 @@
             "cy": 0.414
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.81,
             "bbox_x": 0.501,
             "bbox_y": 0.41,
@@ -1258,7 +1278,7 @@
             "cy": 0.432
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.64,
             "bbox_x": 0.67,
             "bbox_y": 0.373,
@@ -1373,7 +1393,7 @@
             "cy": 0.419
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.37,
             "bbox_x": 0.184,
             "bbox_y": 0.428,
@@ -1413,7 +1433,7 @@
             "cy": 0.363
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.49,
             "bbox_x": 0.35,
             "bbox_y": 0.41,
@@ -1423,7 +1443,7 @@
             "cy": 0.56
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "bike",
             "confidence_score": 0.8,
             "bbox_x": 0.392,
             "bbox_y": 0.585,
@@ -1443,7 +1463,7 @@
             "cy": 0.421
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.72,
             "bbox_x": 0.471,
             "bbox_y": 0.42,
@@ -1463,7 +1483,7 @@
             "cy": 0.406
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.8,
             "bbox_x": 0.645,
             "bbox_y": 0.38,
@@ -1568,7 +1588,7 @@
         "time": 4.5,
         "detections": [
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.88,
             "bbox_x": 0.0,
             "bbox_y": 0.779,
@@ -1578,7 +1598,7 @@
             "cy": 0.886
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.6,
             "bbox_x": 0.001,
             "bbox_y": 0.482,
@@ -1588,7 +1608,7 @@
             "cy": 0.674
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.34,
             "bbox_x": 0.095,
             "bbox_y": 0.443,
@@ -1638,7 +1658,7 @@
             "cy": 0.378
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "bike",
             "confidence_score": 0.82,
             "bbox_x": 0.334,
             "bbox_y": 0.653,
@@ -1648,7 +1668,7 @@
             "cy": 0.823
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.74,
             "bbox_x": 0.429,
             "bbox_y": 0.425,
@@ -1688,7 +1708,7 @@
             "cy": 0.411
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.81,
             "bbox_x": 0.62,
             "bbox_y": 0.397,
@@ -1738,7 +1758,7 @@
             "cy": 0.351
           },
           {
-            "vehicle_class": "truck",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.36,
             "bbox_x": 0.823,
             "bbox_y": 0.03,
@@ -1763,7 +1783,7 @@
         "time": 5.0,
         "detections": [
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.81,
             "bbox_x": 0.0,
             "bbox_y": 0.452,
@@ -1773,7 +1793,7 @@
             "cy": 0.72
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.55,
             "bbox_x": 0.23,
             "bbox_y": 0.432,
@@ -1783,7 +1803,7 @@
             "cy": 0.554
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "bike",
             "confidence_score": 0.75,
             "bbox_x": 0.234,
             "bbox_y": 0.743,
@@ -1823,7 +1843,7 @@
             "cy": 0.45
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.76,
             "bbox_x": 0.37,
             "bbox_y": 0.444,
@@ -1843,7 +1863,7 @@
             "cy": 0.417
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.87,
             "bbox_x": 0.598,
             "bbox_y": 0.413,
@@ -1903,7 +1923,7 @@
             "cy": 0.466
           },
           {
-            "vehicle_class": "truck",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.25,
             "bbox_x": 0.825,
             "bbox_y": 0.03,
@@ -1928,7 +1948,7 @@
         "time": 5.5,
         "detections": [
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.46,
             "bbox_x": 0.0,
             "bbox_y": 0.485,
@@ -1958,7 +1978,7 @@
             "cy": 0.588
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.68,
             "bbox_x": 0.3,
             "bbox_y": 0.463,
@@ -1988,7 +2008,7 @@
             "cy": 0.432
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.82,
             "bbox_x": 0.576,
             "bbox_y": 0.427,
@@ -2008,7 +2028,7 @@
             "cy": 0.417
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.61,
             "bbox_x": 0.674,
             "bbox_y": 0.4,
@@ -2048,7 +2068,7 @@
             "cy": 0.475
           },
           {
-            "vehicle_class": "truck",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.3,
             "bbox_x": 0.827,
             "bbox_y": 0.043,
@@ -2073,7 +2093,7 @@
         "time": 6.0,
         "detections": [
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.59,
             "bbox_x": 0.005,
             "bbox_y": 0.446,
@@ -2133,7 +2153,7 @@
             "cy": 0.441
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.72,
             "bbox_x": 0.428,
             "bbox_y": 0.45,
@@ -2143,7 +2163,7 @@
             "cy": 0.661
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.76,
             "bbox_x": 0.546,
             "bbox_y": 0.429,
@@ -2153,7 +2173,7 @@
             "cy": 0.584
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.63,
             "bbox_x": 0.658,
             "bbox_y": 0.406,
@@ -2213,7 +2233,7 @@
             "cy": 0.731
           },
           {
-            "vehicle_class": "truck",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.46,
             "bbox_x": 0.827,
             "bbox_y": 0.037,
@@ -2268,7 +2288,7 @@
             "cy": 0.449
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.79,
             "bbox_x": 0.37,
             "bbox_y": 0.451,
@@ -2278,7 +2298,7 @@
             "cy": 0.693
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.76,
             "bbox_x": 0.51,
             "bbox_y": 0.431,
@@ -2298,7 +2318,7 @@
             "cy": 0.392
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.62,
             "bbox_x": 0.645,
             "bbox_y": 0.399,
@@ -2413,7 +2433,7 @@
             "cy": 0.451
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.91,
             "bbox_x": 0.3,
             "bbox_y": 0.46,
@@ -2433,7 +2453,7 @@
             "cy": 0.364
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.7,
             "bbox_x": 0.453,
             "bbox_y": 0.427,
@@ -2463,7 +2483,7 @@
             "cy": 0.356
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.77,
             "bbox_x": 0.633,
             "bbox_y": 0.393,
@@ -2528,7 +2548,7 @@
         "time": 7.5,
         "detections": [
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.62,
             "bbox_x": 0.001,
             "bbox_y": 0.496,
@@ -2568,7 +2588,7 @@
             "cy": 0.364
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.67,
             "bbox_x": 0.381,
             "bbox_y": 0.42,
@@ -2588,7 +2608,7 @@
             "cy": 0.469
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.79,
             "bbox_x": 0.621,
             "bbox_y": 0.391,
@@ -2663,7 +2683,7 @@
             "cy": 0.735
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.3,
             "bbox_x": 0.305,
             "bbox_y": 0.464,
@@ -2683,7 +2703,7 @@
             "cy": 0.379
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.73,
             "bbox_x": 0.462,
             "bbox_y": 0.402,
@@ -2713,7 +2733,7 @@
             "cy": 0.459
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.77,
             "bbox_x": 0.614,
             "bbox_y": 0.415,
@@ -2798,6 +2818,16 @@
             "cy": 0.755
           },
           {
+            "vehicle_class": "auto-rickshaw",
+            "confidence_score": 0.57,
+            "bbox_x": 0.18,
+            "bbox_y": 0.445,
+            "bbox_w": 0.281,
+            "bbox_h": 0.545,
+            "cx": 0.321,
+            "cy": 0.718
+          },
+          {
             "vehicle_class": "car",
             "confidence_score": 0.28,
             "bbox_x": 0.271,
@@ -2818,7 +2848,7 @@
             "cy": 0.393
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.75,
             "bbox_x": 0.403,
             "bbox_y": 0.415,
@@ -2828,7 +2858,7 @@
             "cy": 0.544
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.25,
             "bbox_x": 0.433,
             "bbox_y": 0.628,
@@ -2848,7 +2878,7 @@
             "cy": 0.479
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.65,
             "bbox_x": 0.571,
             "bbox_y": 0.407,
@@ -2868,7 +2898,7 @@
             "cy": 0.368
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.66,
             "bbox_x": 0.61,
             "bbox_y": 0.431,
@@ -2973,7 +3003,7 @@
         "time": 9.0,
         "detections": [
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.53,
             "bbox_x": 0.001,
             "bbox_y": 0.566,
@@ -3003,7 +3033,7 @@
             "cy": 0.439
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.77,
             "bbox_x": 0.326,
             "bbox_y": 0.431,
@@ -3023,7 +3053,7 @@
             "cy": 0.397
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.63,
             "bbox_x": 0.456,
             "bbox_y": 0.417,
@@ -3043,7 +3073,7 @@
             "cy": 0.495
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.4,
             "bbox_x": 0.642,
             "bbox_y": 0.436,
@@ -3093,7 +3123,7 @@
             "cy": 0.488
           },
           {
-            "vehicle_class": "truck",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.36,
             "bbox_x": 0.824,
             "bbox_y": 0.03,
@@ -3118,7 +3148,7 @@
             "cy": 0.493
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.72,
             "bbox_x": 0.231,
             "bbox_y": 0.454,
@@ -3158,7 +3188,7 @@
             "cy": 0.811
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.87,
             "bbox_x": 0.419,
             "bbox_y": 0.43,
@@ -3169,6 +3199,16 @@
           },
           {
             "vehicle_class": "car",
+            "confidence_score": 0.32,
+            "bbox_x": 0.511,
+            "bbox_y": 0.475,
+            "bbox_w": 0.031,
+            "bbox_h": 0.157,
+            "cx": 0.526,
+            "cy": 0.553
+          },
+          {
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.82,
             "bbox_x": 0.521,
             "bbox_y": 0.429,
@@ -3198,7 +3238,7 @@
             "cy": 0.48
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.77,
             "bbox_x": 0.681,
             "bbox_y": 0.456,
@@ -3218,7 +3258,7 @@
             "cy": 0.385
           },
           {
-            "vehicle_class": "truck",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.3,
             "bbox_x": 0.827,
             "bbox_y": 0.056,
@@ -3273,7 +3313,7 @@
             "cy": 0.456
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.84,
             "bbox_x": 0.278,
             "bbox_y": 0.479,
@@ -3293,7 +3333,7 @@
             "cy": 0.444
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.83,
             "bbox_x": 0.38,
             "bbox_y": 0.443,
@@ -3303,7 +3343,7 @@
             "cy": 0.551
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.84,
             "bbox_x": 0.483,
             "bbox_y": 0.448,
@@ -3343,7 +3383,7 @@
             "cy": 0.527
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.78,
             "bbox_x": 0.672,
             "bbox_y": 0.434,
@@ -3408,7 +3448,7 @@
         "time": 10.5,
         "detections": [
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.78,
             "bbox_x": 0.0,
             "bbox_y": 0.477,
@@ -3418,7 +3458,7 @@
             "cy": 0.707
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.88,
             "bbox_x": 0.163,
             "bbox_y": 0.495,
@@ -3448,7 +3488,7 @@
             "cy": 0.428
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.8,
             "bbox_x": 0.339,
             "bbox_y": 0.449,
@@ -3468,7 +3508,7 @@
             "cy": 0.601
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.57,
             "bbox_x": 0.432,
             "bbox_y": 0.457,
@@ -3508,7 +3548,7 @@
             "cy": 0.399
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.9,
             "bbox_x": 0.648,
             "bbox_y": 0.441,
@@ -3558,7 +3598,7 @@
             "cy": 0.399
           },
           {
-            "vehicle_class": "truck",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.39,
             "bbox_x": 0.824,
             "bbox_y": 0.049,
@@ -3573,7 +3613,7 @@
         "time": 11.0,
         "detections": [
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.6,
             "bbox_x": 0.002,
             "bbox_y": 0.497,
@@ -3583,7 +3623,7 @@
             "cy": 0.742
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.87,
             "bbox_x": 0.025,
             "bbox_y": 0.513,
@@ -3593,7 +3633,7 @@
             "cy": 0.688
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.48,
             "bbox_x": 0.288,
             "bbox_y": 0.459,
@@ -3613,7 +3653,7 @@
             "cy": 0.421
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.51,
             "bbox_x": 0.357,
             "bbox_y": 0.459,
@@ -3623,7 +3663,7 @@
             "cy": 0.664
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.83,
             "bbox_x": 0.558,
             "bbox_y": 0.436,
@@ -3643,7 +3683,7 @@
             "cy": 0.401
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.86,
             "bbox_x": 0.639,
             "bbox_y": 0.449,
@@ -3738,7 +3778,7 @@
         "time": 11.5,
         "detections": [
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.87,
             "bbox_x": 0.001,
             "bbox_y": 0.526,
@@ -3748,7 +3788,7 @@
             "cy": 0.706
           },
           {
-            "vehicle_class": "truck",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.52,
             "bbox_x": 0.23,
             "bbox_y": 0.459,
@@ -3768,7 +3808,7 @@
             "cy": 0.415
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.49,
             "bbox_x": 0.446,
             "bbox_y": 0.438,
@@ -3778,7 +3818,7 @@
             "cy": 0.543
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.81,
             "bbox_x": 0.535,
             "bbox_y": 0.433,
@@ -3788,7 +3828,7 @@
             "cy": 0.526
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.86,
             "bbox_x": 0.631,
             "bbox_y": 0.453,
@@ -3923,7 +3963,7 @@
             "cy": 0.41
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.54,
             "bbox_x": 0.398,
             "bbox_y": 0.434,
@@ -3943,7 +3983,7 @@
             "cy": 0.521
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.78,
             "bbox_x": 0.508,
             "bbox_y": 0.429,
@@ -3963,7 +4003,7 @@
             "cy": 0.581
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.55,
             "bbox_x": 0.637,
             "bbox_y": 0.455,
@@ -4048,7 +4088,7 @@
         "time": 12.5,
         "detections": [
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.74,
             "bbox_x": 0.001,
             "bbox_y": 0.481,
@@ -4058,7 +4098,7 @@
             "cy": 0.736
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.56,
             "bbox_x": 0.325,
             "bbox_y": 0.429,
@@ -4088,7 +4128,7 @@
             "cy": 0.399
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.78,
             "bbox_x": 0.474,
             "bbox_y": 0.424,
@@ -4138,7 +4178,7 @@
             "cy": 0.427
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.26,
             "bbox_x": 0.669,
             "bbox_y": 0.436,
@@ -4148,7 +4188,7 @@
             "cy": 0.531
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.62,
             "bbox_x": 0.711,
             "bbox_y": 0.457,
@@ -4213,7 +4253,7 @@
             "cy": 0.493
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.89,
             "bbox_x": 0.001,
             "bbox_y": 0.507,
@@ -4223,7 +4263,7 @@
             "cy": 0.749
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.59,
             "bbox_x": 0.256,
             "bbox_y": 0.43,
@@ -4233,7 +4273,7 @@
             "cy": 0.56
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "bike",
             "confidence_score": 0.77,
             "bbox_x": 0.27,
             "bbox_y": 0.588,
@@ -4263,7 +4303,7 @@
             "cy": 0.436
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.59,
             "bbox_x": 0.436,
             "bbox_y": 0.418,
@@ -4313,7 +4353,7 @@
             "cy": 0.433
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.84,
             "bbox_x": 0.66,
             "bbox_y": 0.435,
@@ -4333,7 +4373,7 @@
             "cy": 0.372
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.52,
             "bbox_x": 0.73,
             "bbox_y": 0.44,
@@ -4386,13 +4426,13 @@
     "height": 540,
     "total_frames_sampled": 40,
     "queue_count": 16,
-    "density_percent": 45.7,
+    "density_percent": 45.0,
     "is_ambulance_detected": false,
-    "allocated_green_seconds": 36.9,
+    "allocated_green_seconds": 36.8,
     "vehicle_breakdown": {
-      "car": 11,
+      "car": 10,
       "bike": 2,
-      "auto-rickshaw": 1,
+      "auto-rickshaw": 2,
       "pedestrian": 3
     },
     "steps": [
@@ -5125,7 +5165,7 @@
             "cy": 0.588
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.8,
             "bbox_x": 0.501,
             "bbox_y": 0.664,
@@ -5360,7 +5400,7 @@
             "cy": 0.477
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.75,
             "bbox_x": 0.48,
             "bbox_y": 0.725,
@@ -5605,7 +5645,7 @@
             "cy": 0.66
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.72,
             "bbox_x": 0.456,
             "bbox_y": 0.815,
@@ -6390,7 +6430,7 @@
             "cy": 0.463
           },
           {
-            "vehicle_class": "truck",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.61,
             "bbox_x": 0.434,
             "bbox_y": 0.685,
@@ -6420,7 +6460,7 @@
             "cy": 0.432
           },
           {
-            "vehicle_class": "truck",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.48,
             "bbox_x": 0.475,
             "bbox_y": 0.443,
@@ -6695,7 +6735,7 @@
             "cy": 0.528
           },
           {
-            "vehicle_class": "truck",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.72,
             "bbox_x": 0.456,
             "bbox_y": 0.465,
@@ -6910,7 +6950,7 @@
             "cy": 0.409
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.86,
             "bbox_x": 0.324,
             "bbox_y": 0.569,
@@ -7035,7 +7075,7 @@
         "time": 5.72,
         "detections": [
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.83,
             "bbox_x": 0.0,
             "bbox_y": 0.726,
@@ -7135,7 +7175,7 @@
             "cy": 0.601
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.83,
             "bbox_x": 0.281,
             "bbox_y": 0.62,
@@ -7255,7 +7295,7 @@
             "cy": 0.5
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.75,
             "bbox_x": 0.658,
             "bbox_y": 0.612,
@@ -7350,7 +7390,7 @@
             "cy": 0.567
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.84,
             "bbox_x": 0.208,
             "bbox_y": 0.704,
@@ -7530,7 +7570,7 @@
             "cy": 0.526
           },
           {
-            "vehicle_class": "truck",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.42,
             "bbox_x": 0.697,
             "bbox_y": 0.657,
@@ -7565,7 +7605,7 @@
         "time": 6.76,
         "detections": [
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.88,
             "bbox_x": 0.0,
             "bbox_y": 0.625,
@@ -7795,7 +7835,7 @@
             "cy": 0.472
           },
           {
-            "vehicle_class": "truck",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.49,
             "bbox_x": 0.749,
             "bbox_y": 0.708,
@@ -7820,7 +7860,7 @@
         "time": 7.28,
         "detections": [
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.83,
             "bbox_x": 0.0,
             "bbox_y": 0.698,
@@ -7970,7 +8010,7 @@
             "cy": 0.446
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.9,
             "bbox_x": 0.34,
             "bbox_y": 0.631,
@@ -8060,7 +8100,7 @@
             "cy": 0.491
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.73,
             "bbox_x": 0.598,
             "bbox_y": 0.519,
@@ -8070,7 +8110,7 @@
             "cy": 0.599
           },
           {
-            "vehicle_class": "truck",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.75,
             "bbox_x": 0.82,
             "bbox_y": 0.747,
@@ -8165,7 +8205,7 @@
             "cy": 0.668
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.87,
             "bbox_x": 0.28,
             "bbox_y": 0.708,
@@ -8275,7 +8315,7 @@
             "cy": 0.519
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.8,
             "bbox_x": 0.608,
             "bbox_y": 0.55,
@@ -8295,7 +8335,7 @@
             "cy": 0.785
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.75,
             "bbox_x": 0.896,
             "bbox_y": 0.802,
@@ -8320,7 +8360,7 @@
         "time": 8.32,
         "detections": [
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.89,
             "bbox_x": 0.0,
             "bbox_y": 0.746,
@@ -8510,7 +8550,7 @@
             "cy": 0.544
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.87,
             "bbox_x": 0.628,
             "bbox_y": 0.592,
@@ -8665,7 +8705,7 @@
             "cy": 0.557
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.91,
             "bbox_x": 0.314,
             "bbox_y": 0.572,
@@ -8705,7 +8745,7 @@
             "cy": 0.461
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.8,
             "bbox_x": 0.419,
             "bbox_y": 0.617,
@@ -8735,7 +8775,7 @@
             "cy": 0.584
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.85,
             "bbox_x": 0.653,
             "bbox_y": 0.64,
@@ -8830,7 +8870,7 @@
             "cy": 0.492
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.88,
             "bbox_x": 0.273,
             "bbox_y": 0.618,
@@ -8890,7 +8930,7 @@
             "cy": 0.484
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.85,
             "bbox_x": 0.398,
             "bbox_y": 0.677,
@@ -8955,7 +8995,7 @@
             "cy": 0.492
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.87,
             "bbox_x": 0.001,
             "bbox_y": 0.656,
@@ -8995,7 +9035,7 @@
             "cy": 0.466
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.9,
             "bbox_x": 0.208,
             "bbox_y": 0.687,
@@ -9045,7 +9085,7 @@
             "cy": 0.399
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.82,
             "bbox_x": 0.363,
             "bbox_y": 0.769,
@@ -9355,7 +9395,7 @@
             "cy": 0.78
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.83,
             "bbox_x": 0.141,
             "bbox_y": 0.535,
@@ -9540,7 +9580,7 @@
             "cy": 0.437
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.87,
             "bbox_x": 0.318,
             "bbox_y": 0.569,
@@ -9560,7 +9600,7 @@
             "cy": 0.383
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.81,
             "bbox_x": 0.584,
             "bbox_y": 0.516,
@@ -9645,7 +9685,7 @@
             "cy": 0.468
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.81,
             "bbox_x": 0.138,
             "bbox_y": 0.618,
@@ -9655,7 +9695,7 @@
             "cy": 0.709
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.84,
             "bbox_x": 0.277,
             "bbox_y": 0.627,
@@ -9685,7 +9725,7 @@
             "cy": 0.383
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.87,
             "bbox_x": 0.596,
             "bbox_y": 0.545,
@@ -9705,7 +9745,7 @@
             "cy": 0.804
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "bike",
             "confidence_score": 0.75,
             "bbox_x": 0.837,
             "bbox_y": 0.842,
@@ -9730,7 +9770,7 @@
         "time": 12.48,
         "detections": [
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.85,
             "bbox_x": 0.0,
             "bbox_y": 0.674,
@@ -9760,7 +9800,7 @@
             "cy": 0.788
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.91,
             "bbox_x": 0.211,
             "bbox_y": 0.719,
@@ -9790,7 +9830,7 @@
             "cy": 0.384
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.41,
             "bbox_x": 0.606,
             "bbox_y": 0.572,
@@ -9895,7 +9935,7 @@
             "cy": 0.384
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.67,
             "bbox_x": 0.616,
             "bbox_y": 0.595,
@@ -9990,7 +10030,7 @@
             "cy": 0.263
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.82,
             "bbox_x": 0.627,
             "bbox_y": 0.615,
@@ -10065,7 +10105,7 @@
             "cy": 0.384
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.85,
             "bbox_x": 0.639,
             "bbox_y": 0.633,
@@ -10300,7 +10340,7 @@
         "time": 15.6,
         "detections": [
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.88,
             "bbox_x": 0.0,
             "bbox_y": 0.666,
@@ -10690,7 +10730,7 @@
             "cy": 0.501
           },
           {
-            "vehicle_class": "truck",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.38,
             "bbox_x": 0.356,
             "bbox_y": 0.679,
@@ -10900,7 +10940,7 @@
             "cy": 0.63
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.86,
             "bbox_x": 0.312,
             "bbox_y": 0.575,
@@ -10985,7 +11025,7 @@
             "cy": 0.746
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.75,
             "bbox_x": 0.192,
             "bbox_y": 0.723,
@@ -11228,11 +11268,12 @@
     "height": 480,
     "total_frames_sampled": 30,
     "queue_count": 21,
-    "density_percent": 75.0,
+    "density_percent": 74.3,
     "is_ambulance_detected": false,
-    "allocated_green_seconds": 48.8,
+    "allocated_green_seconds": 48.6,
     "vehicle_breakdown": {
-      "car": 18,
+      "car": 17,
+      "auto-rickshaw": 1,
       "truck": 1
     },
     "steps": [
@@ -11250,7 +11291,7 @@
             "cy": 0.591
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.88,
             "bbox_x": 0.0,
             "bbox_y": 0.791,
@@ -11405,7 +11446,7 @@
             "cy": 0.602
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.83,
             "bbox_x": 0.0,
             "bbox_y": 0.774,
@@ -11560,7 +11601,7 @@
             "cy": 0.601
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.87,
             "bbox_x": 0.0,
             "bbox_y": 0.774,
@@ -11570,7 +11611,7 @@
             "cy": 0.883
           },
           {
-            "vehicle_class": "truck",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.63,
             "bbox_x": 0.0,
             "bbox_y": 0.154,
@@ -11715,7 +11756,7 @@
             "cy": 0.599
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.83,
             "bbox_x": 0.0,
             "bbox_y": 0.761,
@@ -11725,7 +11766,7 @@
             "cy": 0.878
           },
           {
-            "vehicle_class": "truck",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.76,
             "bbox_x": 0.0,
             "bbox_y": 0.182,
@@ -11860,7 +11901,7 @@
         "time": 2.0,
         "detections": [
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.85,
             "bbox_x": 0.0,
             "bbox_y": 0.762,
@@ -11870,7 +11911,7 @@
             "cy": 0.878
           },
           {
-            "vehicle_class": "truck",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.82,
             "bbox_x": 0.0,
             "bbox_y": 0.193,
@@ -11990,7 +12031,7 @@
             "cy": 0.51
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.82,
             "bbox_x": 0.85,
             "bbox_y": 0.344,
@@ -12015,7 +12056,7 @@
             "cy": 0.306
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.84,
             "bbox_x": 0.001,
             "bbox_y": 0.757,
@@ -12135,7 +12176,7 @@
             "cy": 0.517
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.77,
             "bbox_x": 0.852,
             "bbox_y": 0.35,
@@ -12170,7 +12211,7 @@
             "cy": 0.189
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.86,
             "bbox_x": 0.001,
             "bbox_y": 0.757,
@@ -12300,7 +12341,7 @@
             "cy": 0.278
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.84,
             "bbox_x": 0.86,
             "bbox_y": 0.354,
@@ -12475,7 +12516,7 @@
             "cy": 0.243
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.82,
             "bbox_x": 0.864,
             "bbox_y": 0.375,
@@ -12500,7 +12541,7 @@
             "cy": 0.886
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.77,
             "bbox_x": 0.0,
             "bbox_y": 0.341,
@@ -12640,7 +12681,7 @@
             "cy": 0.553
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.63,
             "bbox_x": 0.872,
             "bbox_y": 0.383,
@@ -13290,7 +13331,7 @@
             "cy": 0.417
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "bike",
             "confidence_score": 0.6,
             "bbox_x": 0.589,
             "bbox_y": 0.184,
@@ -13525,7 +13566,7 @@
             "cy": 0.356
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.71,
             "bbox_x": 0.89,
             "bbox_y": 0.411,
@@ -13710,7 +13751,7 @@
             "cy": 0.609
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.63,
             "bbox_x": 0.894,
             "bbox_y": 0.42,
@@ -13915,7 +13956,7 @@
             "cy": 0.349
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.75,
             "bbox_x": 0.894,
             "bbox_y": 0.429,
@@ -14118,6 +14159,16 @@
             "bbox_h": 0.121,
             "cx": 0.848,
             "cy": 0.305
+          },
+          {
+            "vehicle_class": "auto-rickshaw",
+            "confidence_score": 0.67,
+            "bbox_x": 0.9,
+            "bbox_y": 0.433,
+            "bbox_w": 0.1,
+            "bbox_h": 0.19,
+            "cx": 0.95,
+            "cy": 0.528
           }
         ]
       },
@@ -14313,6 +14364,16 @@
             "bbox_h": 0.259,
             "cx": 0.864,
             "cy": 0.622
+          },
+          {
+            "vehicle_class": "auto-rickshaw",
+            "confidence_score": 0.54,
+            "bbox_x": 0.903,
+            "bbox_y": 0.43,
+            "bbox_w": 0.096,
+            "bbox_h": 0.183,
+            "cx": 0.951,
+            "cy": 0.522
           }
         ]
       },
@@ -14930,6 +14991,16 @@
             "cy": 0.64
           },
           {
+            "vehicle_class": "auto-rickshaw",
+            "confidence_score": 0.7,
+            "bbox_x": 0.912,
+            "bbox_y": 0.435,
+            "bbox_w": 0.088,
+            "bbox_h": 0.179,
+            "cx": 0.956,
+            "cy": 0.524
+          },
+          {
             "vehicle_class": "car",
             "confidence_score": 0.67,
             "bbox_x": 0.964,
@@ -15190,7 +15261,7 @@
             "cy": 0.337
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.79,
             "bbox_x": 0.0,
             "bbox_y": 0.338,
@@ -15390,7 +15461,7 @@
             "cy": 0.308
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.82,
             "bbox_x": 0.82,
             "bbox_y": 0.512,
@@ -15425,7 +15496,7 @@
             "cy": 0.336
           },
           {
-            "vehicle_class": "car",
+            "vehicle_class": "auto-rickshaw",
             "confidence_score": 0.67,
             "bbox_x": 0.0,
             "bbox_y": 0.338,
@@ -17018,12 +17089,12 @@
     "height": 480,
     "total_frames_sampled": 40,
     "queue_count": 21,
-    "density_percent": 70.7,
+    "density_percent": 86.4,
     "is_ambulance_detected": true,
     "allocated_green_seconds": 60.0,
     "vehicle_breakdown": {
       "car": 17,
-      "auto-rickshaw": 2,
+      "truck": 2,
       "ambulance": 1
     },
     "steps": [
@@ -17041,7 +17112,7 @@
             "cy": 0.387
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.49,
             "bbox_x": 0.01,
             "bbox_y": 0.232,
@@ -17051,7 +17122,7 @@
             "cy": 0.284
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.73,
             "bbox_x": 0.071,
             "bbox_y": 0.25,
@@ -17191,7 +17262,7 @@
             "cy": 0.426
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.37,
             "bbox_x": 0.433,
             "bbox_y": 0.221,
@@ -17221,7 +17292,7 @@
             "cy": 0.485
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.72,
             "bbox_x": 0.553,
             "bbox_y": 0.208,
@@ -17296,7 +17367,7 @@
             "cy": 0.393
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.32,
             "bbox_x": 0.044,
             "bbox_y": 0.231,
@@ -17316,7 +17387,7 @@
             "cy": 0.354
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.68,
             "bbox_x": 0.103,
             "bbox_y": 0.236,
@@ -17416,7 +17487,7 @@
             "cy": 0.329
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.28,
             "bbox_x": 0.433,
             "bbox_y": 0.218,
@@ -17486,7 +17557,7 @@
             "cy": 0.474
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.39,
             "bbox_x": 0.644,
             "bbox_y": 0.27,
@@ -17531,7 +17602,7 @@
             "cy": 0.358
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.27,
             "bbox_x": 0.081,
             "bbox_y": 0.225,
@@ -17551,7 +17622,7 @@
             "cy": 0.332
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.43,
             "bbox_x": 0.135,
             "bbox_y": 0.241,
@@ -17621,7 +17692,7 @@
             "cy": 0.343
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.34,
             "bbox_x": 0.432,
             "bbox_y": 0.212,
@@ -17756,7 +17827,7 @@
             "cy": 0.316
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.37,
             "bbox_x": 0.164,
             "bbox_y": 0.241,
@@ -17836,7 +17907,7 @@
             "cy": 0.358
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.47,
             "bbox_x": 0.431,
             "bbox_y": 0.205,
@@ -17876,7 +17947,7 @@
             "cy": 0.475
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.59,
             "bbox_x": 0.58,
             "bbox_y": 0.234,
@@ -18031,7 +18102,7 @@
             "cy": 0.379
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.47,
             "bbox_x": 0.429,
             "bbox_y": 0.204,
@@ -18111,7 +18182,7 @@
             "cy": 0.975
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.44,
             "bbox_x": 0.68,
             "bbox_y": 0.272,
@@ -18256,7 +18327,7 @@
             "cy": 0.319
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.43,
             "bbox_x": 0.426,
             "bbox_y": 0.203,
@@ -18451,7 +18522,7 @@
             "cy": 0.325
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.48,
             "bbox_x": 0.425,
             "bbox_y": 0.201,
@@ -18666,7 +18737,7 @@
             "cy": 0.337
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.52,
             "bbox_x": 0.42,
             "bbox_y": 0.199,
@@ -18771,7 +18842,7 @@
             "cy": 0.357
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.28,
             "bbox_x": 0.081,
             "bbox_y": 0.225,
@@ -18861,7 +18932,7 @@
             "cy": 0.352
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.5,
             "bbox_x": 0.414,
             "bbox_y": 0.2,
@@ -18871,7 +18942,7 @@
             "cy": 0.286
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.31,
             "bbox_x": 0.53,
             "bbox_y": 0.247,
@@ -19046,7 +19117,7 @@
             "cy": 0.347
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.47,
             "bbox_x": 0.406,
             "bbox_y": 0.202,
@@ -19056,7 +19127,7 @@
             "cy": 0.277
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.38,
             "bbox_x": 0.529,
             "bbox_y": 0.246,
@@ -19251,7 +19322,7 @@
             "cy": 0.386
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.78,
             "bbox_x": 0.396,
             "bbox_y": 0.202,
@@ -19261,7 +19332,7 @@
             "cy": 0.302
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.55,
             "bbox_x": 0.527,
             "bbox_y": 0.243,
@@ -19366,7 +19437,7 @@
             "cy": 0.342
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.59,
             "bbox_x": 0.151,
             "bbox_y": 0.25,
@@ -19456,7 +19527,7 @@
             "cy": 0.318
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.6,
             "bbox_x": 0.525,
             "bbox_y": 0.241,
@@ -19581,7 +19652,7 @@
             "cy": 0.323
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.51,
             "bbox_x": 0.178,
             "bbox_y": 0.251,
@@ -19661,7 +19732,7 @@
             "cy": 0.333
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.62,
             "bbox_x": 0.529,
             "bbox_y": 0.25,
@@ -19856,7 +19927,7 @@
             "cy": 0.347
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.58,
             "bbox_x": 0.528,
             "bbox_y": 0.255,
@@ -20051,7 +20122,7 @@
             "cy": 0.373
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.73,
             "bbox_x": 0.524,
             "bbox_y": 0.263,
@@ -20126,7 +20197,7 @@
             "cy": 0.42
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.53,
             "bbox_x": 0.0,
             "bbox_y": 0.283,
@@ -20401,7 +20472,7 @@
             "cy": 0.298
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.34,
             "bbox_x": 0.529,
             "bbox_y": 0.264,
@@ -20486,7 +20557,7 @@
             "cy": 0.352
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.46,
             "bbox_x": 0.084,
             "bbox_y": 0.248,
@@ -20536,7 +20607,7 @@
             "cy": 0.581
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.47,
             "bbox_x": 0.403,
             "bbox_y": 0.239,
@@ -20661,7 +20732,7 @@
             "cy": 0.333
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.5,
             "bbox_x": 0.121,
             "bbox_y": 0.223,
@@ -20711,14 +20782,14 @@
             "cy": 0.649
           },
           {
-            "vehicle_class": "car",
-            "confidence_score": 0.59,
-            "bbox_x": 0.294,
-            "bbox_y": 0.342,
-            "bbox_w": 0.168,
-            "bbox_h": 0.348,
-            "cx": 0.378,
-            "cy": 0.516
+            "vehicle_class": "ambulance",
+            "confidence_score": 0.96,
+            "bbox_x": 0.329,
+            "bbox_y": 0.377,
+            "bbox_w": 0.103,
+            "bbox_h": 0.073,
+            "cx": 0.38,
+            "cy": 0.414
           },
           {
             "vehicle_class": "car",
@@ -20731,7 +20802,7 @@
             "cy": 0.323
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.4,
             "bbox_x": 0.391,
             "bbox_y": 0.243,
@@ -20896,7 +20967,7 @@
             "cy": 0.348
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.54,
             "bbox_x": 0.388,
             "bbox_y": 0.246,
@@ -20916,7 +20987,7 @@
             "cy": 0.371
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.67,
             "bbox_x": 0.537,
             "bbox_y": 0.226,
@@ -21101,7 +21172,7 @@
             "cy": 0.428
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.54,
             "bbox_x": 0.386,
             "bbox_y": 0.252,
@@ -21111,7 +21182,7 @@
             "cy": 0.325
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.52,
             "bbox_x": 0.536,
             "bbox_y": 0.228,
@@ -21276,7 +21347,7 @@
             "cy": 0.368
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.63,
             "bbox_x": 0.535,
             "bbox_y": 0.233,
@@ -21381,7 +21452,7 @@
             "cy": 0.329
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.49,
             "bbox_x": 0.13,
             "bbox_y": 0.25,
@@ -21451,7 +21522,7 @@
             "cy": 0.391
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.34,
             "bbox_x": 0.366,
             "bbox_y": 0.264,
@@ -21471,7 +21542,7 @@
             "cy": 0.756
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.51,
             "bbox_x": 0.538,
             "bbox_y": 0.243,
@@ -21626,7 +21697,7 @@
             "cy": 0.475
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.28,
             "bbox_x": 0.295,
             "bbox_y": 0.182,
@@ -21666,7 +21737,7 @@
             "cy": 0.322
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.54,
             "bbox_x": 0.542,
             "bbox_y": 0.256,
@@ -21801,7 +21872,7 @@
             "cy": 0.639
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.27,
             "bbox_x": 0.304,
             "bbox_y": 0.182,
@@ -21986,7 +22057,7 @@
             "cy": 0.495
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.55,
             "bbox_x": 0.314,
             "bbox_y": 0.184,
@@ -22091,7 +22162,7 @@
             "cy": 0.383
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.43,
             "bbox_x": 0.0,
             "bbox_y": 0.082,
@@ -22276,7 +22347,7 @@
             "cy": 0.389
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.47,
             "bbox_x": 0.0,
             "bbox_y": 0.087,
@@ -22541,7 +22612,7 @@
             "cy": 0.307
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.34,
             "bbox_x": 0.347,
             "bbox_y": 0.19,
@@ -22551,7 +22622,7 @@
             "cy": 0.254
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.32,
             "bbox_x": 0.519,
             "bbox_y": 0.224,
@@ -22726,7 +22797,7 @@
             "cy": 0.48
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.37,
             "bbox_x": 0.358,
             "bbox_y": 0.197,
@@ -22756,7 +22827,7 @@
             "cy": 0.361
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.25,
             "bbox_x": 0.515,
             "bbox_y": 0.22,
@@ -22921,7 +22992,7 @@
             "cy": 0.502
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.29,
             "bbox_x": 0.364,
             "bbox_y": 0.199,
@@ -22941,7 +23012,7 @@
             "cy": 0.374
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.4,
             "bbox_x": 0.514,
             "bbox_y": 0.214,
@@ -23106,7 +23177,7 @@
             "cy": 0.394
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.44,
             "bbox_x": 0.38,
             "bbox_y": 0.203,
@@ -23126,7 +23197,7 @@
             "cy": 0.392
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.33,
             "bbox_x": 0.516,
             "bbox_y": 0.208,
@@ -23301,7 +23372,7 @@
             "cy": 0.42
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.28,
             "bbox_x": 0.388,
             "bbox_y": 0.206,
@@ -23321,7 +23392,7 @@
             "cy": 0.415
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.49,
             "bbox_x": 0.518,
             "bbox_y": 0.2,
@@ -23486,7 +23557,7 @@
             "cy": 0.565
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.36,
             "bbox_x": 0.311,
             "bbox_y": 0.185,
@@ -23516,7 +23587,7 @@
             "cy": 0.441
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.38,
             "bbox_x": 0.52,
             "bbox_y": 0.191,
@@ -23611,7 +23682,7 @@
             "cy": 0.394
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.83,
             "bbox_x": 0.077,
             "bbox_y": 0.202,
@@ -23631,7 +23702,7 @@
             "cy": 0.918
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.3,
             "bbox_x": 0.155,
             "bbox_y": 0.181,
@@ -23731,7 +23802,7 @@
             "cy": 0.472
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.25,
             "bbox_x": 0.519,
             "bbox_y": 0.185,
@@ -23856,7 +23927,7 @@
             "cy": 0.36
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.86,
             "bbox_x": 0.114,
             "bbox_y": 0.197,
@@ -23866,7 +23937,7 @@
             "cy": 0.285
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.32,
             "bbox_x": 0.18,
             "bbox_y": 0.194,
@@ -23936,7 +24007,7 @@
             "cy": 0.51
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.48,
             "bbox_x": 0.515,
             "bbox_y": 0.178,
@@ -24071,7 +24142,7 @@
             "cy": 0.337
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.79,
             "bbox_x": 0.145,
             "bbox_y": 0.198,
@@ -24131,7 +24202,7 @@
             "cy": 0.559
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.33,
             "bbox_x": 0.345,
             "bbox_y": 0.194,
@@ -24151,7 +24222,7 @@
             "cy": 0.361
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.63,
             "bbox_x": 0.519,
             "bbox_y": 0.171,
@@ -24306,7 +24377,7 @@
             "cy": 0.919
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.83,
             "bbox_x": 0.17,
             "bbox_y": 0.204,
@@ -24376,7 +24447,7 @@
             "cy": 0.458
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.52,
             "bbox_x": 0.358,
             "bbox_y": 0.198,
@@ -24406,7 +24477,7 @@
             "cy": 0.364
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.6,
             "bbox_x": 0.519,
             "bbox_y": 0.165,
@@ -24541,7 +24612,7 @@
             "cy": 0.317
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.85,
             "bbox_x": 0.192,
             "bbox_y": 0.209,
@@ -24601,7 +24672,7 @@
             "cy": 0.38
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.63,
             "bbox_x": 0.523,
             "bbox_y": 0.159,
@@ -24756,7 +24827,7 @@
             "cy": 0.309
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.7,
             "bbox_x": 0.211,
             "bbox_y": 0.219,
@@ -24836,7 +24907,7 @@
             "cy": 0.399
           },
           {
-            "vehicle_class": "auto-rickshaw",
+            "vehicle_class": "truck",
             "confidence_score": 0.74,
             "bbox_x": 0.517,
             "bbox_y": 0.151,
