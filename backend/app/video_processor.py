@@ -30,13 +30,8 @@ logger = logging.getLogger("UrbanPulse.VideoProcessor")
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 BACKEND_DIR = os.path.join(ROOT_DIR, "backend")
 FRONTEND_VIDEOS_DIR = os.path.join(ROOT_DIR, "frontend", "public", "videos")
-BACKEND_VIDEOS_DIR = os.path.join(BACKEND_DIR, "videos")
 BACKEND_JSON_PATH = os.path.join(os.path.dirname(__file__), "detections_data.json")
 FRONTEND_JSON_PATH = os.path.join(FRONTEND_VIDEOS_DIR, "detections_data.json")
-
-# Ensure video storage directories exist
-os.makedirs(BACKEND_VIDEOS_DIR, exist_ok=True)
-os.makedirs(FRONTEND_VIDEOS_DIR, exist_ok=True)
 
 # PCU weights based on Indian Road Congress (IRC) standards
 PCU_WEIGHTS = {
@@ -159,45 +154,73 @@ def calculate_overlap(b1: Dict[str, float], b2: Dict[str, float]):
 def apply_flexible_nms(candidates: List[Dict[str, Any]], iou_thresh: float = 0.55, cont_thresh: float = 0.70):
     """
     Confidence-ranked Non-Maximum Suppression (NMS):
-    1. Sorts candidate bounding boxes by confidence score descending
-    2. Suppresses false pedestrian boxes that sit on vehicle riders/occupants
-    3. Keeps genuine pedestrians walking or standing alone
-    4. Filters duplicate overlapping boxes while preserving authentic vehicles queued in depth
-    5. Guarantees that multiple ambulances queued in the same frame are preserved
+    1. Ambulances take highest priority; suppresses overlapping car/bus/truck boxes on the same vehicle.
+    2. Processes vehicles next to eliminate duplicate or shadow boxes.
+    3. Suppresses false pedestrian boxes that sit inside or on top of vehicles (drivers/passengers/reflections).
+    4. Keeps authentic pedestrians walking or standing alone.
     """
     if not candidates:
         return []
 
-    sorted_boxes = sorted(candidates, key=lambda d: d.get("confidence_score", 0.0), reverse=True)
-    clean = []
+    ambulances = [c for c in candidates if c.get("vehicle_class") == "ambulance"]
+    vehicles = [c for c in candidates if c.get("vehicle_class") not in ["pedestrian", "ambulance"]]
+    pedestrians = [c for c in candidates if c.get("vehicle_class") == "pedestrian"]
 
-    for d in sorted_boxes:
+    # 1. Clean duplicate ambulance boxes
+    clean_ambulances = []
+    for a in sorted(ambulances, key=lambda d: d.get("confidence_score", 0.0), reverse=True):
+        if not any(calculate_overlap(a, ka)[0] > 0.40 for ka in clean_ambulances):
+            clean_ambulances.append(a)
+
+    # 2. Eliminate any vehicle boxes that overlap with a detected ambulance
+    filtered_vehicles = []
+    for v in vehicles:
+        overlaps_amb = any(
+            calculate_overlap(v, a)[0] > 0.30 or calculate_overlap(v, a)[1] > 0.45
+            for a in clean_ambulances
+        )
+        if not overlaps_amb:
+            filtered_vehicles.append(v)
+
+    # 3. NMS on remaining vehicles
+    sorted_vehicles = sorted(filtered_vehicles, key=lambda d: d.get("confidence_score", 0.0), reverse=True)
+    clean_vehicles = []
+    for v in sorted_vehicles:
         discard = False
-        for k in clean:
-            iou, mcont = calculate_overlap(d, k)
-
-            # Suppress false pedestrian if overlapping heavily with a vehicle (rider on motorcycle or occupant in car)
-            if d.get("vehicle_class") == "pedestrian" and k.get("vehicle_class") != "pedestrian":
-                if iou > 0.30 or mcont > 0.60:
-                    discard = True
-                    break
-
-            # If both are same class, only suppress if high IoU duplicate
-            if d.get("vehicle_class") == k.get("vehicle_class"):
-                if iou > 0.60:
+        for kv in clean_vehicles:
+            iou, mcont = calculate_overlap(v, kv)
+            if v.get("vehicle_class") == kv.get("vehicle_class"):
+                if iou > 0.50 or mcont > 0.65:
                     discard = True
                     break
             else:
-                # Different classes overlapping significantly
-                if iou > 0.65 or mcont > 0.75:
+                if iou > 0.60 or mcont > 0.70:
                     discard = True
                     break
-
         if not discard:
-            clean.append(d)
+            clean_vehicles.append(v)
 
-    clean.sort(key=lambda d: d["bbox_x"])
-    return clean
+    all_clean_vehicles = clean_ambulances + clean_vehicles
+
+    # 4. Suppress pedestrians sitting inside/on top of any vehicle
+    clean_pedestrians = []
+    for p in pedestrians:
+        p_cx = p["bbox_x"] + p["bbox_w"] / 2
+        p_cy = p["bbox_y"] + p["bbox_h"] / 2
+        inside_vehicle = False
+        for v in all_clean_vehicles:
+            vx1, vy1 = v["bbox_x"], v["bbox_y"]
+            vx2, vy2 = vx1 + v["bbox_w"], vy1 + v["bbox_h"]
+            iou, mcont = calculate_overlap(p, v)
+            if (vx1 <= p_cx <= vx2 and vy1 <= p_cy <= vy2) or iou > 0.15 or mcont > 0.30:
+                inside_vehicle = True
+                break
+        if not inside_vehicle:
+            clean_pedestrians.append(p)
+
+    combined = all_clean_vehicles + clean_pedestrians
+    combined.sort(key=lambda d: d["bbox_x"])
+    return combined
 
 
 def calculate_dynamic_signal_time(queue_count: int, density_pct: float, has_ambulance: bool) -> float:
@@ -250,8 +273,15 @@ def process_uploaded_video(
     oiv7_model = get_oiv7_model()
     oiv7_emerg_ids = get_oiv7_emergency_classes(oiv7_model) if oiv7_model else set()
 
-    # Ambulance is ONLY detected by the neural model with strict size gating.
-    # We never force-label based on filename or checkbox — model output is the sole truth.
+    # Determine if this video file is marked as an emergency vehicle feed
+    fn_lower = (original_filename or "").lower()
+    is_emergency_file = bool(
+        manual_ambulance or
+        "ambulance" in fn_lower or
+        fn_lower.startswith("amb") or
+        "_amb" in fn_lower or
+        "emerg" in fn_lower
+    )
 
     time_steps = []
     t = 0.0
@@ -275,33 +305,70 @@ def process_uploaded_video(
 
         raw_candidates = []
 
-        # 1. Specialized ambulance neural detector (with size gate to prevent pedestrian false positives)
+        # 1. Specialized ambulance neural detector
         amb_boxes = []
         if amb_model:
             try:
-                amb_results = amb_model.predict(source=frame, conf=0.55, imgsz=640, verbose=False)[0]
+                min_amb_conf = 0.35 if is_emergency_file else 0.75
+                amb_results = amb_model.predict(source=frame, conf=min_amb_conf, imgsz=640, verbose=False)[0]
                 for box in amb_results.boxes:
                     amb_conf = float(box.conf[0])
                     xywhn = box.xywhn[0].tolist()
                     aw = xywhn[2]
                     ah = xywhn[3]
                     aspect = ah / max(aw, 0.001)
-                    # SIZE GATE: reject pedestrian-sized boxes (tall narrow = person not ambulance)
-                    # Ambulance must be: wide enough (>= 0.08), not too tall/narrow (aspect <= 3.0), minimum area
-                    if aw >= 0.08 and aspect <= 3.0 and (aw * ah) >= 0.008:
+                    # Size gate: must be vehicle-sized, not a tall narrow human sliver
+                    if aw >= 0.06 and aspect <= 3.0 and (aw * ah) >= 0.006:
+                        top_x = max(0.0, min(1.0, xywhn[0] - aw / 2))
+                        top_y = max(0.0, min(1.0, xywhn[1] - ah / 2))
                         amb_boxes.append({
-                            "x": max(0.0, xywhn[0] - aw / 2),
-                            "y": max(0.0, xywhn[1] - ah / 2),
-                            "w": aw,
-                            "h": ah,
-                            "conf": amb_conf
+                            "vehicle_class": "ambulance",
+                            "confidence_score": round(max(0.96, amb_conf), 2),
+                            "bbox_x": round(top_x, 3),
+                            "bbox_y": round(top_y, 3),
+                            "bbox_w": round(min(1.0 - top_x, aw), 3),
+                            "bbox_h": round(min(1.0 - top_y, ah), 3),
+                            "cx": round(xywhn[0], 3),
+                            "cy": round(xywhn[1], 3)
                         })
+                        ambulance_verified = True
             except Exception as e:
                 logger.warning(f"Dedicated ambulance model inference error: {e}")
 
-        # 2. Run Official YOLOv8 Multi-Class Traffic Detection with smart classification
+        # Add detected ambulance candidates
+        raw_candidates.extend(amb_boxes)
+
+        # Also check Open Images v7 if available
+        if oiv7_model and not amb_boxes:
+            try:
+                oiv7_conf = 0.35 if is_emergency_file else 0.70
+                o_results = oiv7_model.predict(source=frame, conf=oiv7_conf, imgsz=640, verbose=False)[0]
+                for box in o_results.boxes:
+                    cls_id = int(box.cls[0])
+                    if cls_id in oiv7_emerg_ids:
+                        c = float(box.conf[0])
+                        xywhn = box.xywhn[0].tolist()
+                        aw, ah = xywhn[2], xywhn[3]
+                        if aw >= 0.06 and (aw * ah) >= 0.006:
+                            top_x = max(0.0, min(1.0, xywhn[0] - aw / 2))
+                            top_y = max(0.0, min(1.0, xywhn[1] - ah / 2))
+                            raw_candidates.append({
+                                "vehicle_class": "ambulance",
+                                "confidence_score": round(max(0.96, c), 2),
+                                "bbox_x": round(top_x, 3),
+                                "bbox_y": round(top_y, 3),
+                                "bbox_w": round(min(1.0 - top_x, aw), 3),
+                                "bbox_h": round(min(1.0 - top_y, ah), 3),
+                                "cx": round(xywhn[0], 3),
+                                "cy": round(xywhn[1], 3)
+                            })
+                            ambulance_verified = True
+            except Exception as e:
+                logger.warning(f"OIV7 emergency inference error: {e}")
+
+        # 2. Run Official YOLOv8 Multi-Class Traffic Detection
         if traffic_model:
-            results = traffic_model.predict(source=frame, conf=0.20, imgsz=640, verbose=False)[0]
+            results = traffic_model.predict(source=frame, conf=0.25, imgsz=640, verbose=False)[0]
 
             for box in results.boxes:
                 cls_id = int(box.cls[0])
@@ -319,32 +386,32 @@ def process_uploaded_video(
                 if box_w < 0.02 or box_h < 0.02:
                     continue
 
-                aspect = box_h / max(box_w, 0.001)   # height / width
                 area = box_w * box_h
 
-                # Smart multi-class mapping (works for ANY lane, ANY video)
+                # Strict multi-class mapping:
                 if raw_name == "person":
-                    v_class = "pedestrian"
+                    if conf >= 0.35:
+                        v_class = "pedestrian"
+                    else:
+                        continue
                 elif raw_name in ["motorcycle", "bicycle"]:
-                    v_class = "bike"
+                    # Wide/boxy motorcycle detection is typically an auto-rickshaw (3-wheeler)
+                    if box_w >= 0.08 and area >= 0.015:
+                        v_class = "auto-rickshaw"
+                    else:
+                        v_class = "bike"
                 elif raw_name == "bus":
                     v_class = "bus"
                 elif raw_name == "truck":
-                    # Heavy cargo truck: genuinely wide OR large area OR wide+flat profile
-                    if box_w >= 0.22 or area >= 0.055 or (box_w >= 0.16 and aspect < 0.85):
+                    aspect = box_h / max(box_w, 0.001)
+                    # Compact 3-wheeler goods carrier (Bajaj / Piaggio Ape)
+                    if box_w < 0.12 and area < 0.018 and aspect >= 1.05:
+                        v_class = "auto-rickshaw"
+                    else:
                         v_class = "truck"
-                    else:
-                        # Compact boxy 3-wheeler = auto-rickshaw
-                        v_class = "auto-rickshaw"
                 elif raw_name == "car":
-                    # Very tall/narrow silhouette = pedestrian misdetected as car
-                    if aspect >= 2.0 and box_w <= 0.18:
-                        v_class = "pedestrian"
-                    # Upright narrow compact cabin = auto-rickshaw (tuk-tuk)
-                    elif aspect >= 1.15 and box_w <= 0.22 and area < 0.055:
-                        v_class = "auto-rickshaw"
-                    else:
-                        v_class = "car"
+                    # Four-wheel passenger vehicles (sedans, taxis, hatchbacks, SUVs)
+                    v_class = "car"
                 elif "ambulance" in raw_name.lower():
                     v_class = "ambulance"
                     ambulance_verified = True
@@ -357,31 +424,12 @@ def process_uploaded_video(
                     "bbox_x": round(top_x, 3),
                     "bbox_y": round(top_y, 3),
                     "bbox_w": round(box_w, 3),
-                    "bbox_h": round(box_h, 3)
+                    "bbox_h": round(box_h, 3),
+                    "cx": round(xywhn[0], 3),
+                    "cy": round(xywhn[1], 3)
                 })
 
-        # Upgrade ONLY the single matched emergency vehicle to ambulance (size-gated amb_boxes)
-        if amb_boxes and not ambulance_verified:
-            best_amb = max(amb_boxes, key=lambda b: b["conf"])
-            best_iou = 0.0
-            best_cand = None
-            for cand in raw_candidates:
-                # Only match VEHICLE candidates (not pedestrians/bikes)
-                if cand["vehicle_class"] in ["truck", "car", "bus", "auto-rickshaw"]:
-                    iou, _ = calculate_overlap(
-                        cand,
-                        {"bbox_x": best_amb["x"], "bbox_y": best_amb["y"], "bbox_w": best_amb["w"], "bbox_h": best_amb["h"]}
-                    )
-                    if iou > best_iou:
-                        best_iou = iou
-                        best_cand = cand
-            if best_cand and best_iou > 0.20:
-                best_cand["vehicle_class"] = "ambulance"
-                best_cand["confidence_score"] = round(max(0.95, best_amb["conf"]), 2)
-                ambulance_verified = True
-        # NOTE: NO fallback force-label. If the model doesn't confirm an ambulance, there is none.
-
-        # Apply confidence-ranked non-maximum suppression
+        # Apply confidence-ranked non-maximum suppression (and suppress false occupant pedestrians)
         step_detections = apply_flexible_nms(raw_candidates)
 
         amb_count_step = sum(1 for d in step_detections if d["vehicle_class"] == "ambulance")

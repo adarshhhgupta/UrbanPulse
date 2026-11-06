@@ -393,16 +393,16 @@ export default function LiveJunction({ isDedicated = false }) {
       4: '/videos/lane4.mp4'
     });
     setCustomVideoNames({
-      1: 'demo_lane1_ambulance.mp4',
-      2: 'demo_lane2_congested.mp4',
-      3: 'demo_lane3_transit.mp4',
-      4: 'demo_lane4_arterial.mp4'
+      1: 'lane1.mp4',
+      2: 'lane2.mp4',
+      3: 'lane3.mp4',
+      4: 'lane4.mp4'
     });
-    setStagedAmbulance({ 1: true, 2: false, 3: false, 4: false });
+    setStagedAmbulance({ 1: false, 2: false, 3: false, 4: false });
     setActiveLane(1);
-    setEmergencyLane(1);
-    setEmergencyOverride(true);
-    setSecondsRemaining(60);
+    setEmergencyLane(null);
+    setEmergencyOverride(false);
+    setSecondsRemaining(20);
 
     try {
       await fetch(`${API_BASE}/api/lanes/reset-defaults`, { method: 'POST' }).catch(() => { });
@@ -1030,21 +1030,6 @@ export default function LiveJunction({ isDedicated = false }) {
                         </span>
                       </div>
                     ))}
-
-                    {/* Ambulance Box Overlay if Emergency on this Lane */}
-                    {isThisLaneEmergency && !currentDetections.some((d) => d.vehicle_class === 'ambulance') && (
-                      <div
-                        className="bbox bbox-ambulance"
-                        style={{
-                          top: '22%',
-                          left: '26%',
-                          width: '36%',
-                          height: '52%'
-                        }}
-                      >
-                        <span className="bbox-tag">ambulance 0.98</span>
-                      </div>
-                    )}
                   </>
                 )}
               </div>

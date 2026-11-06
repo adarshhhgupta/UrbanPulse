@@ -7,6 +7,7 @@ PCU density estimation, demand-responsive signal allocation, and WebSocket telem
 import os
 import shutil
 import json
+import tempfile
 from typing import List, Optional
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
@@ -19,8 +20,6 @@ from ..ml_simulation import calculate_density_from_detections, generate_lstm_for
 from ..decision_engine import arbitrate_junction_state
 from ..video_processor import (
     process_uploaded_video,
-    BACKEND_VIDEOS_DIR,
-    FRONTEND_VIDEOS_DIR,
     calculate_dynamic_signal_time
 )
 from .websocket import manager
@@ -229,24 +228,17 @@ async def upload_all_videos(
 
     for lane_num, f_upload in uploads.items():
         if f_upload and f_upload.filename:
-            backend_dst = os.path.join(BACKEND_VIDEOS_DIR, f"lane{lane_num}.mp4")
-            frontend_dst = os.path.join(FRONTEND_VIDEOS_DIR, f"lane{lane_num}.mp4")
-
+            tmp_path = None
             try:
                 content = await f_upload.read()
-                with open(backend_dst, "wb") as f:
-                    f.write(content)
-                with open(frontend_dst, "wb") as f:
-                    f.write(content)
+                with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
+                    tmp.write(content)
+                    tmp_path = tmp.name
 
                 is_amb = bool(ambulance_lane == lane_num)
-                if is_amb:
-                    shutil.copy2(backend_dst, os.path.join(BACKEND_VIDEOS_DIR, "ambulancevid.mp4"))
-                    shutil.copy2(backend_dst, os.path.join(FRONTEND_VIDEOS_DIR, "ambulancevid.mp4"))
-
                 res = process_uploaded_video(
                     lane_id=lane_num,
-                    video_filepath=backend_dst,
+                    video_filepath=tmp_path,
                     original_filename=f_upload.filename,
                     manual_ambulance=is_amb
                 )
@@ -254,6 +246,12 @@ async def upload_all_videos(
                 _update_lane_and_arbitrate(lane_num, res, db)
             except Exception as e:
                 results[lane_num] = {"error": str(e)}
+            finally:
+                if tmp_path and os.path.exists(tmp_path):
+                    try:
+                        os.remove(tmp_path)
+                    except Exception:
+                        pass
 
     # Final arbitration across all 4 lanes
     all_lanes = db.query(Lane).order_by(Lane.lane_number).all()
@@ -547,33 +545,16 @@ async def upload_video_for_lane(
             detail=f"Lane with id {lane_id} not found."
         )
 
-    # Destination paths
-    backend_dst = os.path.join(BACKEND_VIDEOS_DIR, f"lane{lane_id}.mp4")
-    frontend_dst = os.path.join(FRONTEND_VIDEOS_DIR, f"lane{lane_id}.mp4")
-
-    # Save uploaded file
+    tmp_path = None
     try:
         content = await file.read()
-        with open(backend_dst, "wb") as f:
-            f.write(content)
-        with open(frontend_dst, "wb") as f:
-            f.write(content)
+        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
+            tmp.write(content)
+            tmp_path = tmp.name
 
-        # If ambulance flag indicates emergency, mirror to ambulancevid.mp4
-        if manual_ambulance:
-            shutil.copy2(backend_dst, os.path.join(BACKEND_VIDEOS_DIR, "ambulancevid.mp4"))
-            shutil.copy2(backend_dst, os.path.join(FRONTEND_VIDEOS_DIR, "ambulancevid.mp4"))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed saving uploaded video: {str(e)}"
-        )
-
-    # Process video with YOLOv8
-    try:
         result = process_uploaded_video(
             lane_id=lane_id,
-            video_filepath=backend_dst,
+            video_filepath=tmp_path,
             original_filename=file.filename,
             manual_ambulance=manual_ambulance
         )
@@ -582,6 +563,12 @@ async def upload_video_for_lane(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"YOLOv8 video processing failed: {str(e)}"
         )
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
 
     # Update database models & arbitrate signals
     updated_lane, decision = _update_lane_and_arbitrate(lane_id, result, db)

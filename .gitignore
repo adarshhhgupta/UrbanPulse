@@ -44,6 +44,14 @@ Thumbs.db
 backend/*.jpg
 
 
+# Video files - no video storage in repository
+*.mp4
+*.avi
+*.mov
+*.mkv
+backend/videos/
+backend/videos/*
+
 # IDE & Editor settings
 .vscode/
 .idea/
