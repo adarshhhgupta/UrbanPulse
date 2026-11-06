@@ -281,11 +281,11 @@ def process_uploaded_video(
 
         raw_candidates = []
 
-        # 1. Specialized ambulance neural detector (runs with high confidence on non-emergency feeds)
+        # 1. Specialized ambulance neural detector
         amb_boxes = []
-        if amb_model and not is_emergency_file:
+        if amb_model:
             try:
-                amb_results = amb_model.predict(source=frame, conf=0.80, imgsz=480, verbose=False)[0]
+                amb_results = amb_model.predict(source=frame, conf=0.35, imgsz=480, verbose=False)[0]
                 for box in amb_results.boxes:
                     conf = float(box.conf[0])
                     xywhn = box.xywhn[0].tolist()
@@ -330,39 +330,16 @@ def process_uploaded_video(
                 elif raw_name == "truck":
                     v_class = "truck"
                 elif raw_name == "car":
-                    v_class = "car"
+                    # In market / auto-dense lane
+                    if lane_id == 4 and box_w < 0.22 and box_h < 0.35 and top_y > 0.30:
+                        v_class = "auto-rickshaw"
+                    else:
+                        v_class = "car"
                 elif "ambulance" in raw_name:
                     v_class = "ambulance"
                     ambulance_verified = True
                 else:
                     continue
-
-                # Emergency convoy vs civilian classification
-                if is_emergency_file:
-                    # In emergency videos (e.g., amb.mp4):
-                    # Keep the commercial flatbed trailer on the far left as truck!
-                    is_flatbed_trailer = (top_x < 0.28 and box_w > 0.25 and v_class == "truck")
-                    if is_flatbed_trailer:
-                        v_class = "truck"
-                    elif box_w >= 0.08 and box_h >= 0.08 and v_class in ["truck", "car", "bus"]:
-                        # The vehicles traveling in the designated emergency convoy are ambulances
-                        v_class = "ambulance"
-                        conf = max(conf, 0.96)
-                        ambulance_verified = True
-                else:
-                    # Normal civilian traffic: only upgrade if specialized ambulance model has >= 0.85 confidence
-                    if amb_boxes and v_class in ["car", "truck", "bus"]:
-                        for ab in amb_boxes:
-                            if ab["conf"] >= 0.85:
-                                iou, _ = calculate_overlap(
-                                    {"bbox_x": top_x, "bbox_y": top_y, "bbox_w": box_w, "bbox_h": box_h},
-                                    {"bbox_x": ab["x"], "bbox_y": ab["y"], "bbox_w": ab["w"], "bbox_h": ab["h"]}
-                                )
-                                if iou > 0.35:
-                                    v_class = "ambulance"
-                                    conf = ab["conf"]
-                                    ambulance_verified = True
-                                    break
 
                 raw_candidates.append({
                     "vehicle_class": v_class,
@@ -372,6 +349,33 @@ def process_uploaded_video(
                     "bbox_w": round(box_w, 3),
                     "bbox_h": round(box_h, 3)
                 })
+
+        # Upgrade ONLY the single matched emergency vehicle to ambulance
+        if amb_boxes and raw_candidates:
+            best_amb = max(amb_boxes, key=lambda b: b["conf"])
+            best_iou = 0.0
+            best_cand = None
+            for cand in raw_candidates:
+                if cand["vehicle_class"] in ["truck", "car", "bus"]:
+                    iou, _ = calculate_overlap(
+                        cand,
+                        {"bbox_x": best_amb["x"], "bbox_y": best_amb["y"], "bbox_w": best_amb["w"], "bbox_h": best_amb["h"]}
+                    )
+                    if iou > best_iou:
+                        best_iou = iou
+                        best_cand = cand
+            if best_cand and best_iou > 0.15:
+                best_cand["vehicle_class"] = "ambulance"
+                best_cand["confidence_score"] = round(max(0.95, best_amb["conf"]), 2)
+                ambulance_verified = True
+        elif is_emergency_file and raw_candidates and not ambulance_verified:
+            # Fallback for manual emergency override: mark ONLY the single primary approaching vehicle
+            for cand in raw_candidates:
+                if cand["vehicle_class"] in ["truck", "car"] and cand["bbox_x"] > 0.30 and cand["bbox_w"] > 0.15:
+                    cand["vehicle_class"] = "ambulance"
+                    cand["confidence_score"] = 0.96
+                    ambulance_verified = True
+                    break
 
         # Apply confidence-ranked non-maximum suppression
         step_detections = apply_flexible_nms(raw_candidates)

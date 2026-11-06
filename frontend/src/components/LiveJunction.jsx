@@ -50,17 +50,29 @@ export default function LiveJunction({ isDedicated = false }) {
   hasAnyActiveVideoRef.current = hasAnyActiveVideo;
   manualEmergencyRef.current = manualEmergency;
 
-  const [emergencyLane, setEmergencyLane] = useState(3);
+  const [emergencyLane, setEmergencyLane] = useState(1);
   const detectedAmbulanceLane = Number(
     (manualEmergency ? emergencyLane : null) ||
+    Object.entries(activeDetections).find(([_, dets]) =>
+      Array.isArray(dets) && dets.some((d) => d.vehicle_class === 'ambulance')
+    )?.[0] ||
+    Object.entries(stagedAmbulance).find(([_, isAmb]) => isAmb)?.[0] ||
     lanes.find((l) => l.is_ambulance_detected)?.lane_number ||
     (videoTracks && Object.entries(videoTracks).find(([_, t]) => t && t.is_ambulance_detected)?.[0]) ||
-    Object.entries(stagedAmbulance).find(([_, isAmb]) => isAmb)?.[0] ||
     emergencyLane ||
-    3
+    1
   );
 
-  const effectiveGreenLane = emergencyOverride ? detectedAmbulanceLane : activeLane;
+  const isEffectiveEmergency = Boolean(
+    emergencyOverride ||
+    manualEmergency ||
+    Object.values(stagedAmbulance).some(Boolean) ||
+    Object.values(activeDetections).some((dets) => Array.isArray(dets) && dets.some((d) => d.vehicle_class === 'ambulance')) ||
+    lanes.some((l) => l.is_ambulance_detected) ||
+    (videoTracks && Object.values(videoTracks).some((t) => t && t.is_ambulance_detected))
+  );
+
+  const effectiveGreenLane = isEffectiveEmergency ? detectedAmbulanceLane : activeLane;
 
   // Fetch telemetry on mount & establish WebSocket stream
   useEffect(() => {
@@ -389,7 +401,9 @@ export default function LiveJunction({ isDedicated = false }) {
     });
     setStagedAmbulance({ 1: true, 2: false, 3: false, 4: false });
     setActiveLane(1);
-    setSecondsRemaining(20);
+    setEmergencyLane(1);
+    setEmergencyOverride(true);
+    setSecondsRemaining(60);
 
     try {
       await fetch(`${API_BASE}/api/lanes/reset-defaults`, { method: 'POST' }).catch(() => { });
@@ -707,7 +721,7 @@ export default function LiveJunction({ isDedicated = false }) {
       </div>
 
       {/* Emergency Banner */}
-      <div className={`banner ${emergencyOverride && hasAnyActiveVideo ? 'show' : ''}`} id="banner">
+      <div className={`banner ${isEffectiveEmergency && hasAnyActiveVideo ? 'show' : ''}`} id="banner">
         <div>
           <h3 id="bt">Emergency override engaged. Ambulance detected in Lane {detectedAmbulanceLane}.</h3>
           <p id="bp">
@@ -803,25 +817,52 @@ export default function LiveJunction({ isDedicated = false }) {
 
           const isGreen = hasVideo && (laneNumber === effectiveGreenLane);
           const isRed = hasVideo && !isGreen;
-          const isThisLaneEmergency = (emergencyOverride && laneNumber === detectedAmbulanceLane) || lane.is_ambulance_detected;
-          const allocatedGreen = laneTimings[laneNumber] || (isThisLaneEmergency ? 60.0 : 20.0);
+          const isThisLaneEmergency = (isEffectiveEmergency && laneNumber === detectedAmbulanceLane) ||
+            stagedAmbulance[laneNumber] ||
+            (activeDetections[laneNumber] && activeDetections[laneNumber].some((d) => d.vehicle_class === 'ambulance')) ||
+            Boolean(lane.is_ambulance_detected);
 
           const laneTracked = activeDetections[laneNumber];
           const currentDetections = hasVideo ? (laneTracked || lane.detections || []) : [];
 
           const vehicleCount = hasVideo
-            ? (currentDetections.filter((d) => d.vehicle_class !== 'pedestrian' && d.vehicle_class !== 'person').length || lane.queue_count)
+            ? (currentDetections.filter((d) => d.vehicle_class !== 'pedestrian' && d.vehicle_class !== 'person').length || lane.queue_count || 0)
             : 0;
 
-          const densityPercent = hasVideo
-            ? (lane.density_percent || Math.min(100, Math.round(vehicleCount * 5.2)))
-            : 0;
+          const allocatedGreen = isThisLaneEmergency
+            ? 60.0
+            : (laneTimings[laneNumber] || laneTimings[String(laneNumber)] || Math.max(15, Math.min(90, Math.round(15 + 1.2 * vehicleCount))));
+
+          // Passenger Car Unit (PCU) calculation directly from active YOLO detections
+          const PCU_WEIGHTS = {
+            car: 1.0,
+            truck: 3.0,
+            bus: 2.5,
+            bike: 0.5,
+            motorcycle: 0.5,
+            'auto-rickshaw': 0.8,
+            auto: 0.8,
+            ambulance: 1.2
+          };
+          const livePcu = currentDetections.reduce((sum, d) => {
+            const v = (d.vehicle_class || '').toLowerCase();
+            if (v === 'pedestrian' || v === 'person') return sum;
+            return sum + (PCU_WEIGHTS[v] || 1.0);
+          }, 0);
+
+          const computedDensity = livePcu > 0
+            ? Math.min(100, Math.round((livePcu / 28.0) * 100))
+            : (lane.density_percent && Number(lane.density_percent) > 0
+                ? Math.round(Number(lane.density_percent))
+                : Math.min(100, Math.round(vehicleCount * 5.2)));
+
+          const densityPercent = hasVideo ? computedDensity : 0;
 
           let badgeText = 'Awaiting video feed';
           let badgeClass = 'badge';
 
           if (hasVideo) {
-            if (emergencyOverride) {
+            if (isEffectiveEmergency) {
               if (laneNumber === detectedAmbulanceLane) {
                 badgeText = `Ambulance override, green (${secondsRemaining}s)`;
                 badgeClass = 'badge g';
