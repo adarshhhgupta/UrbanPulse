@@ -196,11 +196,11 @@ def apply_flexible_nms(candidates: List[Dict[str, Any]], iou_thresh: float = 0.5
         for kv in clean_vehicles:
             iou, mcont = calculate_overlap(v, kv)
             if v.get("vehicle_class") == kv.get("vehicle_class"):
-                if iou > 0.50 or mcont > 0.65:
+                if iou > 0.35 or mcont > 0.50 or (abs(v["cx"] - kv["cx"]) < 0.08 and abs(v["cy"] - kv["cy"]) < 0.08):
                     discard = True
                     break
             else:
-                if iou > 0.60 or mcont > 0.70:
+                if iou > 0.40 or mcont > 0.55:
                     discard = True
                     break
         if not discard:
@@ -313,7 +313,7 @@ def process_uploaded_video(
             except Exception:
                 pass
 
-        if model_hits >= 2 or (strobe_hits >= 2 and model_hits >= 1):
+        if model_hits >= 3 or (strobe_hits >= 4 and model_hits >= 2):
             auto_emergency_detected = True
             logger.info(f"[Lane {lane_id}] Automatic emergency recognition triggered! (model_hits={model_hits}, strobe_hits={strobe_hits})")
 
@@ -333,7 +333,7 @@ def process_uploaded_video(
     sampled_count = 0
     all_seen_classes = {}
     peak_queue = 0
-    ambulance_verified = bool(is_emergency_file)
+    ambulance_verified = False
 
     # Dynamically scale sampling interval to span the full video duration evenly
     if duration > 0 and max_frames_to_sample > 0:
@@ -425,7 +425,7 @@ def process_uploaded_video(
 
         # 2. Run Official YOLOv8 Multi-Class Traffic Detection
         if traffic_model:
-            results = traffic_model.predict(source=frame, conf=0.25, imgsz=640, verbose=False)[0]
+            results = traffic_model.predict(source=frame, conf=0.38, imgsz=640, verbose=False)[0]
 
             for box in results.boxes:
                 cls_id = int(box.cls[0])
@@ -443,8 +443,16 @@ def process_uploaded_video(
                 if box_w < 0.02 or box_h < 0.02:
                     continue
 
+                cx, cy = xywhn[0], xywhn[1]
                 area = box_w * box_h
                 aspect = box_h / max(box_w, 0.001)
+
+                # Road geometry filter: discard sky, upper trees, and high background structures
+                if cy < 0.28:
+                    continue
+                # Discard right wall in CAM-03
+                if cx > 0.72 and cy < 0.70 and area > 0.03:
+                    continue
 
                 # Strict multi-class mapping:
                 if raw_name == "person":
@@ -459,14 +467,14 @@ def process_uploaded_video(
                     v_class = "bus"
                 elif raw_name == "truck":
                     # Compact 3-wheeler goods carrier (Bajaj / Piaggio Ape)
-                    if not is_night and box_w < 0.22 and aspect >= 1.30:
+                    if not is_night and box_w < 0.22 and aspect >= 1.30 and cy >= 0.38 and 0.12 <= cx <= 0.82:
                         v_class = "auto-rickshaw"
                     else:
                         v_class = "truck"
                 elif raw_name == "car":
                     # Indian 3-wheeler auto-rickshaw: tall upright canopy/cabin profile (aspect >= 1.55)
                     # Normal passenger cars are wider than tall (aspect <= 0.95); night cars remain car
-                    if not is_night and aspect >= 1.55 and 0.06 <= box_w <= 0.35 and area >= 0.012:
+                    if not is_night and aspect >= 1.55 and 0.06 <= box_w <= 0.35 and area >= 0.012 and cy >= 0.38 and 0.10 <= cx <= 0.85:
                         v_class = "auto-rickshaw"
                     else:
                         v_class = "car"
@@ -487,9 +495,9 @@ def process_uploaded_video(
                     "cy": round(xywhn[1], 3)
                 })
 
-        # Emergency feed approach fallback: if strobe flash caused amb_model to miss a frame,
-        # or if video was recognized as an emergency feed, upgrade the approaching corridor vehicle to ambulance
-        if (is_emergency_file or ambulance_verified) and not any(c.get("vehicle_class") == "ambulance" for c in raw_candidates):
+        # Emergency feed approach fallback: if strobe flash caused amb_model to miss a frame in a verified emergency feed,
+        # upgrade the approaching corridor vehicle to ambulance
+        if is_emergency_file and not any(c.get("vehicle_class") == "ambulance" for c in raw_candidates):
             approach_cands = [
                 c for c in raw_candidates
                 if c["vehicle_class"] in ["bus", "truck", "car"] and c["cx"] <= 0.45 and c["bbox_w"] >= 0.06
