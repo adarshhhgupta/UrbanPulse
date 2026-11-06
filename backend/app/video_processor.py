@@ -281,27 +281,33 @@ def process_uploaded_video(
 
         raw_candidates = []
 
-        # 1. Specialized ambulance neural detector
+        # 1. Specialized ambulance neural detector (with size gate to prevent pedestrian false positives)
         amb_boxes = []
         if amb_model:
             try:
-                amb_results = amb_model.predict(source=frame, conf=0.35, imgsz=480, verbose=False)[0]
+                amb_results = amb_model.predict(source=frame, conf=0.55, imgsz=640, verbose=False)[0]
                 for box in amb_results.boxes:
-                    conf = float(box.conf[0])
+                    amb_conf = float(box.conf[0])
                     xywhn = box.xywhn[0].tolist()
-                    amb_boxes.append({
-                        "x": max(0.0, xywhn[0] - xywhn[2] / 2),
-                        "y": max(0.0, xywhn[1] - xywhn[3] / 2),
-                        "w": xywhn[2],
-                        "h": xywhn[3],
-                        "conf": conf
-                    })
+                    aw = xywhn[2]
+                    ah = xywhn[3]
+                    aspect = ah / max(aw, 0.001)
+                    # SIZE GATE: reject pedestrian-sized boxes (tall narrow = person not ambulance)
+                    # Ambulance must be: wide enough (>= 0.08), not too tall/narrow (aspect <= 3.0), minimum area
+                    if aw >= 0.08 and aspect <= 3.0 and (aw * ah) >= 0.008:
+                        amb_boxes.append({
+                            "x": max(0.0, xywhn[0] - aw / 2),
+                            "y": max(0.0, xywhn[1] - ah / 2),
+                            "w": aw,
+                            "h": ah,
+                            "conf": amb_conf
+                        })
             except Exception as e:
                 logger.warning(f"Dedicated ambulance model inference error: {e}")
 
-        # 2. Run Official YOLOv8 Multi-Class Traffic Detection
+        # 2. Run Official YOLOv8 Multi-Class Traffic Detection with smart classification
         if traffic_model:
-            results = traffic_model.predict(source=frame, conf=0.20, imgsz=480, verbose=False)[0]
+            results = traffic_model.predict(source=frame, conf=0.20, imgsz=640, verbose=False)[0]
 
             for box in results.boxes:
                 cls_id = int(box.cls[0])
@@ -319,8 +325,10 @@ def process_uploaded_video(
                 if box_w < 0.02 or box_h < 0.02:
                     continue
 
-                # Map COCO classes accurately:
-                # person -> pedestrian, car -> car, bus -> bus, truck -> truck, bike -> bike
+                aspect = box_h / max(box_w, 0.001)   # height / width
+                area = box_w * box_h
+
+                # Smart multi-class mapping (works for ANY lane, ANY video)
                 if raw_name == "person":
                     v_class = "pedestrian"
                 elif raw_name in ["motorcycle", "bicycle"]:
@@ -328,14 +336,22 @@ def process_uploaded_video(
                 elif raw_name == "bus":
                     v_class = "bus"
                 elif raw_name == "truck":
-                    v_class = "truck"
+                    # Heavy cargo truck: genuinely wide OR large area OR wide+flat profile
+                    if box_w >= 0.22 or area >= 0.055 or (box_w >= 0.16 and aspect < 0.85):
+                        v_class = "truck"
+                    else:
+                        # Compact boxy 3-wheeler = auto-rickshaw
+                        v_class = "auto-rickshaw"
                 elif raw_name == "car":
-                    # In market / auto-dense lane
-                    if lane_id == 4 and box_w < 0.22 and box_h < 0.35 and top_y > 0.30:
+                    # Very tall/narrow silhouette = pedestrian misdetected as car
+                    if aspect >= 2.0 and box_w <= 0.18:
+                        v_class = "pedestrian"
+                    # Upright narrow compact cabin = auto-rickshaw (tuk-tuk)
+                    elif aspect >= 1.15 and box_w <= 0.22 and area < 0.055:
                         v_class = "auto-rickshaw"
                     else:
                         v_class = "car"
-                elif "ambulance" in raw_name:
+                elif "ambulance" in raw_name.lower():
                     v_class = "ambulance"
                     ambulance_verified = True
                 else:
@@ -350,13 +366,14 @@ def process_uploaded_video(
                     "bbox_h": round(box_h, 3)
                 })
 
-        # Upgrade ONLY the single matched emergency vehicle to ambulance
-        if amb_boxes and raw_candidates:
+        # Upgrade ONLY the single matched emergency vehicle to ambulance (size-gated amb_boxes)
+        if amb_boxes and not ambulance_verified:
             best_amb = max(amb_boxes, key=lambda b: b["conf"])
             best_iou = 0.0
             best_cand = None
             for cand in raw_candidates:
-                if cand["vehicle_class"] in ["truck", "car", "bus"]:
+                # Only match VEHICLE candidates (not pedestrians/bikes)
+                if cand["vehicle_class"] in ["truck", "car", "bus", "auto-rickshaw"]:
                     iou, _ = calculate_overlap(
                         cand,
                         {"bbox_x": best_amb["x"], "bbox_y": best_amb["y"], "bbox_w": best_amb["w"], "bbox_h": best_amb["h"]}
@@ -364,14 +381,14 @@ def process_uploaded_video(
                     if iou > best_iou:
                         best_iou = iou
                         best_cand = cand
-            if best_cand and best_iou > 0.15:
+            if best_cand and best_iou > 0.20:
                 best_cand["vehicle_class"] = "ambulance"
                 best_cand["confidence_score"] = round(max(0.95, best_amb["conf"]), 2)
                 ambulance_verified = True
         elif is_emergency_file and raw_candidates and not ambulance_verified:
             # Fallback for manual emergency override: mark ONLY the single primary approaching vehicle
             for cand in raw_candidates:
-                if cand["vehicle_class"] in ["truck", "car"] and cand["bbox_x"] > 0.30 and cand["bbox_w"] > 0.15:
+                if cand["vehicle_class"] in ["truck", "car", "auto-rickshaw", "bus"] and cand["bbox_w"] >= 0.10:
                     cand["vehicle_class"] = "ambulance"
                     cand["confidence_score"] = 0.96
                     ambulance_verified = True

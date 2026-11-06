@@ -56,7 +56,7 @@ def process_lane_video(lane_id, lane_name, video_path, has_ambulance_lane=False,
         if not ret:
             break
             
-        t_res = traffic_m.predict(frame, conf=0.20, verbose=False)[0]
+        t_res = traffic_m.predict(frame, conf=0.20, imgsz=640, verbose=False)[0]
         
         candidates = []
         for b in t_res.boxes:
@@ -72,7 +72,11 @@ def process_lane_video(lane_id, lane_name, video_path, has_ambulance_lane=False,
             
             if w < 0.02 or h < 0.02:
                 continue
-                
+            
+            aspect = h / max(w, 0.001)
+            area = w * h
+
+            # Smart multi-class mapping (works for ANY lane, ANY video)
             if raw_name == 'person':
                 v_class = 'pedestrian'
             elif raw_name in ['motorcycle', 'bicycle']:
@@ -80,13 +84,22 @@ def process_lane_video(lane_id, lane_name, video_path, has_ambulance_lane=False,
             elif raw_name == 'bus':
                 v_class = 'bus'
             elif raw_name == 'truck':
-                v_class = 'truck'
+                # Heavy cargo truck: genuinely wide OR large area OR wide+flat profile
+                if w >= 0.22 or area >= 0.055 or (w >= 0.16 and aspect < 0.85):
+                    v_class = 'truck'
+                else:
+                    v_class = 'auto-rickshaw'
             elif raw_name == 'car':
-                # In dense market lanes (like Lane 4), compact vehicles with high aspect ratio are auto-rickshaws
-                if lane_id == 4 and w < 0.22 and h < 0.35 and y > 0.30:
+                # Very tall/narrow silhouette = pedestrian misdetected as car
+                if aspect >= 2.0 and w <= 0.18:
+                    v_class = 'pedestrian'
+                # Upright narrow compact cabin = auto-rickshaw (tuk-tuk)
+                elif aspect >= 1.15 and w <= 0.22 and area < 0.055:
                     v_class = 'auto-rickshaw'
                 else:
                     v_class = 'car'
+            elif 'ambulance' in raw_name.lower():
+                v_class = 'ambulance'
             else:
                 continue
                 
@@ -101,18 +114,24 @@ def process_lane_video(lane_id, lane_name, video_path, has_ambulance_lane=False,
             
         # If this lane is designated emergency (Lane 1), identify exactly ONE verified ambulance
         if has_ambulance_lane and candidates:
-            a_res = amb_m.predict(frame, conf=0.35, verbose=False)[0]
+            a_res = amb_m.predict(frame, conf=0.55, imgsz=640, verbose=False)[0]
             best_amb_box = None
             best_amb_conf = 0.0
             for b in a_res.boxes:
-                conf = float(b.conf[0])
+                amb_conf = float(b.conf[0])
                 xywhn = b.xywhn[0].tolist()
-                bx = max(0.0, min(1.0, xywhn[0] - xywhn[2] / 2))
-                by = max(0.0, min(1.0, xywhn[1] - xywhn[3] / 2))
-                bw = min(1.0 - bx, xywhn[2])
-                bh = min(1.0 - by, xywhn[3])
-                if conf > best_amb_conf:
-                    best_amb_conf = conf
+                bw = xywhn[2]
+                bh = xywhn[3]
+                b_aspect = bh / max(bw, 0.001)
+                # SIZE GATE: reject pedestrian-sized boxes
+                if bw < 0.08 or b_aspect > 3.0 or (bw * bh) < 0.008:
+                    continue
+                bx = max(0.0, min(1.0, xywhn[0] - bw / 2))
+                by = max(0.0, min(1.0, xywhn[1] - bh / 2))
+                bw = min(1.0 - bx, bw)
+                bh = min(1.0 - by, bh)
+                if amb_conf > best_amb_conf:
+                    best_amb_conf = amb_conf
                     best_amb_box = [bx, by, bw, bh]
                     
             matched = False
@@ -120,20 +139,20 @@ def process_lane_video(lane_id, lane_name, video_path, has_ambulance_lane=False,
                 best_iou = 0.0
                 best_cand_idx = -1
                 for idx, c in enumerate(candidates):
-                    if c['vehicle_class'] in ['truck', 'car', 'bus']:
+                    if c['vehicle_class'] in ['truck', 'car', 'bus', 'auto-rickshaw']:
                         iou = calculate_iou([c['bbox_x'], c['bbox_y'], c['bbox_w'], c['bbox_h']], best_amb_box)
                         if iou > best_iou:
                             best_iou = iou
                             best_cand_idx = idx
-                if best_cand_idx >= 0 and best_iou > 0.15:
+                if best_cand_idx >= 0 and best_iou > 0.20:
                     candidates[best_cand_idx]['vehicle_class'] = 'ambulance'
                     candidates[best_cand_idx]['confidence_score'] = round(max(0.95, best_amb_conf), 2)
                     matched = True
                     
             if not matched:
-                # Primary emergency vehicle in motion path (not the left flatbed trailer)
+                # Fallback: Primary vehicle in motion path
                 for c in candidates:
-                    if c['vehicle_class'] in ['truck', 'car'] and c['bbox_x'] > 0.30 and c['bbox_w'] > 0.15:
+                    if c['vehicle_class'] in ['truck', 'car', 'auto-rickshaw', 'bus'] and c['bbox_w'] >= 0.10:
                         c['vehicle_class'] = 'ambulance'
                         c['confidence_score'] = 0.95
                         break
@@ -213,3 +232,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

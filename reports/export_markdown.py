@@ -611,3 +611,4 @@ The project achieves high detection precision (91.3% mAP@0.5 at 42 FPS), normali
 
 if __name__ == "__main__":
     export_full_markdown()
+
